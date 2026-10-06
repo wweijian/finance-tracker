@@ -8,22 +8,8 @@ struct ImportCandidateTableView: View {
     @State private var sortOrder = [KeyPathComparator(\ImportCandidate.sourceRow)]
 
     var body: some View {
-        ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-                GeometryReader { geometry in
-                    ScrollView(.horizontal) {
-                        table
-                            .frame(width: max(1_180, geometry.size.width), height: max(0, geometry.size.height - 16))
-                            .id("import-table")
-                    }
-                    .scrollIndicators(.visible, axes: .horizontal)
-                }
-                Divider()
-                ImportTableNavigationView(
-                    showFirstColumns: { proxy.scrollTo("import-table", anchor: .leading) },
-                    showLastColumns: { proxy.scrollTo("import-table", anchor: .trailing) }
-                )
-            }
+        ImportTableScrollView {
+            table
         }
     }
 
