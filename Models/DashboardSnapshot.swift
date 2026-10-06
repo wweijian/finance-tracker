@@ -1,31 +1,17 @@
 import Foundation
-import GRDB
-
-struct DashboardSnapshot {
-    var incomeCents: Int
-    var expenseCents: Int
-    var transactionCount: Int
+struct DashboardSnapshot: Sendable {
+    var totals: ReportTotals
+    var yearOverYear: ReportComparison
+    var months: [MonthlyReport]
     var categoryTotals: [CategoryTotal]
+    var availableYears: [Int]
 
-    var netCents: Int { incomeCents - expenseCents }
+    var incomeCents: Int { totals.incomeCents }
+    var expenseCents: Int { totals.expenseCents }
+    var netCents: Int { totals.netCents }
+    var transactionCount: Int { totals.transactionCount }
 
     static let empty = DashboardSnapshot(
-        incomeCents: 0,
-        expenseCents: 0,
-        transactionCount: 0,
-        categoryTotals: []
+        totals: .empty, yearOverYear: .empty, months: [], categoryTotals: [], availableYears: []
     )
-}
-
-struct CategoryTotal: FetchableRecord, Decodable, Hashable, Identifiable {
-    var category: String
-    var amountCents: Int
-
-    var id: String { category }
-    var amount: Decimal { Decimal(amountCents) / 100 }
-
-    enum CodingKeys: String, CodingKey {
-        case category
-        case amountCents = "amount_cents"
-    }
 }

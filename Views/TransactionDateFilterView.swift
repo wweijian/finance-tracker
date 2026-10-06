@@ -4,13 +4,14 @@ struct TransactionDateFilterView: View {
     @ObservedObject var controller: TransactionsController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 8) {
             Picker("Date filter", selection: $controller.dateFilterMode) {
                 ForEach(TransactionDateFilterMode.allCases) { mode in
                     Text(mode.rawValue).tag(mode)
                 }
             }
-
+            .labelsHidden()
+            .frame(width: 110)
             switch controller.dateFilterMode {
             case .all:
                 EmptyView()
@@ -20,11 +21,13 @@ struct TransactionDateFilterView: View {
                         Text(String(year)).tag(year)
                     }
                 }
+                .labelsHidden()
+                .frame(width: 80)
             case .range:
-                HStack {
-                    DatePicker("From", selection: $controller.startDate, displayedComponents: .date)
-                    DatePicker("To", selection: $controller.endDate, displayedComponents: .date)
-                }
+                Text("From").foregroundStyle(.secondary)
+                DateTextField(title: "From date", text: $controller.startDateText)
+                Text("Through").foregroundStyle(.secondary)
+                DateTextField(title: "Through date", text: $controller.endDateText)
             }
         }
     }

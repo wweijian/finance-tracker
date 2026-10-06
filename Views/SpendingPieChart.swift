@@ -3,24 +3,26 @@ import SwiftUI
 
 struct SpendingPieChart: View {
     let categoryTotals: [CategoryTotal]
+    private var spending: [CategoryTotal] { categoryTotals.filter { $0.amountCents > 0 } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Spending by category")
-                .font(.headline)
-            Chart(categoryTotals) { total in
-                SectorMark(
-                    angle: .value("Spending", total.amount),
-                    innerRadius: .ratio(0.58)
-                )
-                .foregroundStyle(by: .value("Category", total.category))
+            ReportChartHeaderView(title: "Spending distribution")
+            if spending.isEmpty {
+                ChartEmptyView(message: "No expenses in this period. Income still appears in the monthly charts.")
+            } else {
+                Chart(spending) { total in
+                    SectorMark(angle: .value("Spending in SGD", total.amount), innerRadius: .ratio(0.72))
+                        .foregroundStyle(by: .value("Category", total.category))
+                        .accessibilityLabel(total.category)
+                        .accessibilityValue(CurrencyFormatter().string(for: total.amountCents))
+                }
+                .chartLegend(position: .bottom)
+                .chartForegroundStyleScale(range: [.blue, .teal, .indigo, .orange, .purple, .mint])
+                .frame(height: 280)
+                .accessibilityLabel("Pie chart of selected period spending by category in Singapore dollars")
             }
-            .chartLegend(position: .bottom)
-            .frame(height: 260)
-            .accessibilityLabel("Pie chart of spending by category")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
     }
 }

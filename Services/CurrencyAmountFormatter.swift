@@ -3,20 +3,13 @@ import Foundation
 final class CurrencyAmountFormatter {
     func cents(from value: String) -> Int? {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let amount = Decimal(string: normalized), amount >= 0 else { return nil }
-        return NSDecimalNumber(decimal: amount * 100).rounding(
-            accordingToBehavior: NSDecimalNumberHandler(
-                roundingMode: .plain,
-                scale: 0,
-                raiseOnExactness: false,
-                raiseOnOverflow: true,
-                raiseOnUnderflow: true,
-                raiseOnDivideByZero: true
-            )
-        ).intValue
+        guard normalized.range(of: #"^(?:[0-9]+(?:\.[0-9]{0,2})?|\.[0-9]{1,2})$"#, options: .regularExpression) != nil,
+              let amount = Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX")),
+              amount * 100 <= Decimal(Int.max) else { return nil }
+        return NSDecimalNumber(decimal: amount * 100).intValue
     }
 
     func inputString(for cents: Int) -> String {
-        (Decimal(cents) / 100).formatted(.number.precision(.fractionLength(2)))
+        "\(cents / 100).\(String(format: "%02d", cents % 100))"
     }
 }

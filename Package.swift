@@ -13,9 +13,14 @@ let package = Package(
             name: "LedgerlyApp",
             dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
             path: ".",
-            exclude: ["AGENTS.md", "data", "database", "transactions"],
+            exclude: ["AGENTS.md", "Tests", "transactions", "Makefile"],
             sources: ["App", "Controllers", "Models", "Repositories", "Services", "Views"],
             resources: [.copy("Resources")]
+        ),
+        .testTarget(
+            name: "LedgerlyAppTests",
+            dependencies: ["LedgerlyApp"],
+            path: "Tests"
         )
     ]
 )

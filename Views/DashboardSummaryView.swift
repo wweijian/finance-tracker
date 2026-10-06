@@ -4,18 +4,16 @@ struct DashboardSummaryView: View {
     let snapshot: DashboardSnapshot
 
     var body: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 175), spacing: 16)],
-            spacing: 16
-        ) {
-            DashboardMetricCard(title: "Income", cents: snapshot.incomeCents, tint: .green)
-            DashboardMetricCard(title: "Expenses", cents: snapshot.expenseCents, tint: .red)
-            DashboardMetricCard(title: "Net", cents: snapshot.netCents, tint: netTint)
-            DashboardMetricCard(title: "Transactions", value: String(snapshot.transactionCount), tint: .blue)
+        HStack(alignment: .center, spacing: 24) {
+            DashboardMetricView(title: "Income", cents: snapshot.incomeCents, tint: .blue, change: snapshot.yearOverYear.income)
+            Divider()
+            DashboardMetricView(title: "Expenses", cents: snapshot.expenseCents, tint: .gray, change: snapshot.yearOverYear.expenses)
+            Divider()
+            DashboardMetricView(title: "Net balance", cents: snapshot.netCents, tint: .indigo, change: snapshot.yearOverYear.net)
+            Divider()
+            DashboardMetricView(title: "Transactions", value: String(snapshot.transactionCount), tint: .secondary)
         }
-    }
-
-    private var netTint: Color {
-        snapshot.netCents >= 0 ? .teal : .orange
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.vertical, 4)
     }
 }

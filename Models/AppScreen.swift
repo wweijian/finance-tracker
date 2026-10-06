@@ -1,6 +1,6 @@
 import Foundation
 
-enum AppScreen {
+enum AppScreen: Hashable {
     case dashboard
     case transactions
 }

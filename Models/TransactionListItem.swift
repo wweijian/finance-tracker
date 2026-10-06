@@ -4,7 +4,6 @@ import GRDB
 struct TransactionListItem: FetchableRecord, Decodable, Identifiable, Hashable {
     var id: String
     var transactionDate: String
-    var transactionTime: String?
     var transactionType: TransactionType
     var amountCents: Int
     var currency: String
@@ -13,13 +12,14 @@ struct TransactionListItem: FetchableRecord, Decodable, Identifiable, Hashable {
     var notes: String?
     var deletedAt: String?
 
-    var isDeleted: Bool { deletedAt != nil }
+    var isExcluded: Bool { deletedAt != nil }
     var amount: Decimal { Decimal(amountCents) / 100 }
+    var remarks: String { notes ?? "" }
+    var statusLabel: String { isExcluded ? "Excluded" : "Included" }
 
     enum CodingKeys: String, CodingKey {
         case id
         case transactionDate = "transaction_date"
-        case transactionTime = "transaction_time"
         case transactionType = "transaction_type"
         case amountCents = "amount_cents"
         case currency, description

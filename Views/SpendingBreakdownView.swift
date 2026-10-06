@@ -4,15 +4,13 @@ struct SpendingBreakdownView: View {
     let categoryTotals: [CategoryTotal]
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                SpendingPieChart(categoryTotals: categoryTotals)
-                SpendingBarChart(categoryTotals: categoryTotals)
-            }
-            VStack(alignment: .leading, spacing: 24) {
-                SpendingPieChart(categoryTotals: categoryTotals)
-                SpendingBarChart(categoryTotals: categoryTotals)
-            }
+        HStack(alignment: .top, spacing: 28) {
+            SpendingPieChart(categoryTotals: categoryTotals)
+                .frame(width: 290)
+            Divider()
+            SpendingBarChart(categoryTotals: categoryTotals)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

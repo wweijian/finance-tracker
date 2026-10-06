@@ -4,7 +4,6 @@ struct TransactionForm: Identifiable {
     var id: String
     var transactionID: String?
     var date: Date
-    var time: String
     var transactionType: TransactionType
     var amount: String
     var description: String
@@ -15,7 +14,6 @@ struct TransactionForm: Identifiable {
         id = UUID().uuidString
         transactionID = nil
         date = Date()
-        time = ""
         transactionType = .expense
         amount = ""
         description = ""
@@ -27,7 +25,6 @@ struct TransactionForm: Identifiable {
         id = transaction.id
         transactionID = transaction.id
         self.date = date
-        time = transaction.transactionTime ?? ""
         transactionType = transaction.transactionType
         amount = CurrencyAmountFormatter().inputString(for: transaction.amountCents)
         description = transaction.description

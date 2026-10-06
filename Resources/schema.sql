@@ -3,7 +3,6 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS transactions (
   id TEXT PRIMARY KEY,
   transaction_date TEXT NOT NULL,
-  transaction_time TEXT,
   transaction_year INTEGER NOT NULL,
   transaction_type TEXT NOT NULL CHECK (transaction_type IN ('income', 'expense')),
   amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
@@ -18,7 +17,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_exact_duplicate
-ON transactions (transaction_date, IFNULL(transaction_time, ''), amount_cents, description COLLATE BINARY);
+ON transactions (transaction_date, amount_cents, description COLLATE BINARY);
 
 CREATE INDEX IF NOT EXISTS idx_transactions_active_year_date
 ON transactions (transaction_year, transaction_date) WHERE deleted_at IS NULL;

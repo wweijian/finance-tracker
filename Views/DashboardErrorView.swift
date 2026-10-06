@@ -2,14 +2,17 @@ import SwiftUI
 
 struct DashboardErrorView: View {
     let message: String
+    let retry: () -> Void
 
     var body: some View {
-        ContentUnavailableView(
-            "Dashboard unavailable",
-            systemImage: "exclamationmark.triangle",
-            description: Text(message)
-        )
+        VStack {
+            ContentUnavailableView(
+                "Dashboard unavailable",
+                systemImage: "exclamationmark.triangle",
+                description: Text(message)
+            )
+            Button("Retry", action: retry)
+        }
         .frame(maxWidth: .infinity, minHeight: 320)
-        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
     }
 }

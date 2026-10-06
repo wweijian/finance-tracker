@@ -6,21 +6,22 @@ struct TransactionEditorView: View {
 
     let categories: [String]
     let save: (TransactionForm) -> Void
+    let errorMessage: String?
 
-    init(form: TransactionForm, categories: [String], save: @escaping (TransactionForm) -> Void) {
+    init(form: TransactionForm, categories: [String], errorMessage: String?, save: @escaping (TransactionForm) -> Void) {
         _form = State(initialValue: form)
         self.categories = categories
         self.save = save
+        self.errorMessage = errorMessage
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(form.transactionID == nil ? "Add transaction" : "Edit transaction")
-                .font(.title2.weight(.bold))
+                .font(.title3.weight(.semibold))
 
             Form {
-                DatePicker("Date", selection: $form.date, displayedComponents: .date)
-                TextField("Time (optional)", text: $form.time, prompt: Text("HH:mm"))
+                DateSelectionView(title: "Date", date: $form.date)
                 Picker("Type", selection: $form.transactionType) {
                     ForEach(TransactionType.allCases, id: \.self) { type in
                         Text(type.rawValue.capitalized).tag(type)
@@ -36,19 +37,24 @@ struct TransactionEditorView: View {
                         Text(category).tag(category)
                     }
                 }
-                TextField("Notes (optional)", text: $form.notes, axis: .vertical)
+                TextField("Remarks (optional)", text: $form.notes, axis: .vertical)
                     .lineLimit(2...4)
             }
             .formStyle(.grouped)
 
+            if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).textSelection(.enabled)
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel", action: dismiss.callAsFunction)
+                    .keyboardShortcut(.cancelAction)
                 Button("Save") {
                     save(form)
-                    dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)

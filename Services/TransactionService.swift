@@ -1,6 +1,6 @@
 import Foundation
 
-actor TransactionService {
+actor TransactionService: TransactionServing {
     private let repository: any TransactionRepository
 
     init(repository: any TransactionRepository) {
@@ -17,6 +17,14 @@ actor TransactionService {
 
     func save(_ transaction: FinanceTransaction) throws {
         try repository.save(transaction)
+    }
+
+    func insertIfNew(_ transaction: FinanceTransaction) throws -> Bool {
+        try repository.insertIfNew(transaction)
+    }
+
+    func isDuplicate(date: String, amountCents: Int, description: String) throws -> Bool {
+        try repository.isDuplicate(date: date, amountCents: amountCents, description: description)
     }
 
     func softDelete(id: String) throws {

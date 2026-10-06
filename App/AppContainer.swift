@@ -3,6 +3,8 @@ import Foundation
 final class AppContainer {
     let dashboardReportService: DashboardReportService
     let transactionService: TransactionService
+    let bulkImportService: BulkImportService
+    let localFileService: LocalFileService
 
     init() throws {
         let paths = try DatabasePaths()
@@ -12,5 +14,7 @@ final class AppContainer {
         )
         dashboardReportService = DashboardReportService(repository: repository)
         transactionService = TransactionService(repository: repository)
+        bulkImportService = BulkImportService(repository: repository)
+        localFileService = LocalFileService(repository: repository)
     }
 }

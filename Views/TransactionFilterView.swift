@@ -2,52 +2,40 @@ import SwiftUI
 
 struct TransactionFilterView: View {
     @ObservedObject var controller: TransactionsController
+    @State private var showsOptions = false
 
     var body: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 180), spacing: 12)],
-            alignment: .leading,
-            spacing: 12
-        ) {
-            TextField("Search description, category, or date", text: $controller.searchText)
-                .textFieldStyle(.roundedBorder)
-
+        ScreenControlBar {
             Picker("Type", selection: $controller.selectedType) {
                 Text("All types").tag(TransactionType?.none)
                 ForEach(TransactionType.allCases, id: \.self) { type in
                     Text(type.rawValue.capitalized).tag(TransactionType?.some(type))
                 }
             }
-
+            .labelsHidden()
+            .frame(width: 110)
             Picker("Category", selection: $controller.selectedCategory) {
                 Text("All categories").tag(String?.none)
                 ForEach(controller.categories, id: \.self) { category in
                     Text(category).tag(String?.some(category))
                 }
             }
-
+            .labelsHidden()
+            .frame(width: 170)
             TransactionDateFilterView(controller: controller)
-
-            Picker("Sort", selection: $controller.sortField) {
-                ForEach(TransactionSortField.allCases) { field in
-                    Text(field.rawValue).tag(field)
-                }
+            Spacer(minLength: 8)
+            Button(controller.additionalFilterCount == 0 ? "Filters" : "Filters (\(controller.additionalFilterCount))", systemImage: "line.3.horizontal.decrease") {
+                showsOptions.toggle()
             }
-
-            HStack {
-                Button {
-                    controller.sortsAscending.toggle()
-                } label: {
-                    Image(systemName: controller.sortsAscending ? "arrow.up" : "arrow.down")
-                }
-                .help(controller.sortsAscending ? "Ascending" : "Descending")
-
-                Toggle("Show deleted", isOn: $controller.includesDeleted)
-                    .toggleStyle(.checkbox)
-                    .onChange(of: controller.includesDeleted) {
-                        controller.load()
-                    }
+            .labelStyle(.titleAndIcon)
+            .help("Filter by amount, remarks, and transaction status")
+            .popover(isPresented: $showsOptions) {
+                TransactionFilterOptionsView(controller: controller)
             }
+            Button("Clear filters", systemImage: "xmark.circle", action: controller.clearFilters)
+                .labelStyle(.iconOnly)
+                .disabled(!controller.hasActiveFilters)
+                .help("Clear all filters and search")
         }
     }
 }
