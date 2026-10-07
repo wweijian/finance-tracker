@@ -20,6 +20,9 @@ final class TransactionsController: ObservableObject {
     @Published var form: TransactionForm?
     @Published var isShowingBulkImport = false
     @Published private(set) var importCandidates: [ImportCandidate] = []
+    @Published var importEditorCandidate: ImportCandidate?
+    @Published private(set) var importEditorError: String?
+    @Published var importRowRemovalIDs: Set<String> = []
     @Published private var removedImportCandidates: [ImportCandidate] = []
     @Published private(set) var bulkImportSummary: BulkImportSummary?
     @Published private(set) var bulkImportError: String?
@@ -27,6 +30,7 @@ final class TransactionsController: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var isMutating = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var dataRevision = 0
 
     private let categoryStore: CategoryStore
     private let bulkImportService: any BulkImportHandling
@@ -130,15 +134,15 @@ final class TransactionsController: ObservableObject {
 
     func presentBulkImport() {
         guard !isImporting else { return }
-        bulkImportSummary = nil
-        bulkImportError = nil
-        importCandidates = []
-        removedImportCandidates = []
+        cancelBulkImport()
         isShowingBulkImport = true
     }
 
     func cancelBulkImport() {
         guard !isImporting else { return }
+        importRowRemovalIDs = []
+        importEditorCandidate = nil
+        importEditorError = nil
         bulkImportSummary = nil
         bulkImportError = nil
         importCandidates = []
@@ -147,6 +151,9 @@ final class TransactionsController: ObservableObject {
 
     func previewCSV(at url: URL, kind: CSVImportKind) {
         guard !isImporting else { return }
+        importRowRemovalIDs = []
+        importEditorCandidate = nil
+        importEditorError = nil
         importActivity = .readingFile
         importCandidates = []
         removedImportCandidates = []
@@ -178,10 +185,57 @@ final class TransactionsController: ObservableObject {
         validateImportCandidates(candidates)
     }
 
+    func editImportCandidate(id: String) {
+        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty,
+              let candidate = importCandidates.first(where: { $0.id == id }) else { return }
+        importEditorError = nil
+        importEditorCandidate = candidate
+    }
+
+    func saveImportCandidate(_ candidate: ImportCandidate) {
+        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty, importEditorCandidate?.id == candidate.id,
+              let index = importCandidates.firstIndex(where: { $0.id == candidate.id }) else { return }
+        var candidates = importCandidates
+        candidates[index] = candidate
+        importActivity = .validatingRows
+        importEditorError = nil
+
+        Task { [bulkImportService] in
+            defer { importActivity = nil }
+            do {
+                let validated = try await bulkImportService.validate(candidates, categories: categories)
+                guard let edited = validated.first(where: { $0.id == candidate.id }) else { return }
+                guard edited.isReady else {
+                    importEditorError = edited.rejectionReason
+                    return
+                }
+                importCandidates = validated
+                importEditorCandidate = nil
+            } catch {
+                importEditorError = error.localizedDescription
+            }
+        }
+    }
+
+    func requestImportRowRemoval(_ ids: Set<String>) {
+        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty else { return }
+        importRowRemovalIDs = ids.intersection(importCandidates.map(\.id))
+    }
+
+    func confirmImportRowRemoval(_ ids: Set<String>) {
+        guard !isImporting, bulkImportSummary == nil else { return }
+        importRowRemovalIDs = []
+        removeImportRows(ids)
+    }
+
     func removeImportRows(_ ids: Set<String>) {
         guard !isImporting, bulkImportSummary == nil else { return }
         let removed = importCandidates.filter { ids.contains($0.id) }
         guard !removed.isEmpty else { return }
+        if let candidate = importEditorCandidate, ids.contains(candidate.id) {
+            importEditorCandidate = nil
+            importEditorError = nil
+        }
         removedImportCandidates.append(contentsOf: removed)
         let remaining = importCandidates.filter { !ids.contains($0.id) }
         importCandidates = remaining
@@ -189,7 +243,7 @@ final class TransactionsController: ObservableObject {
     }
 
     func undoImportRowRemovals() {
-        guard !isImporting, bulkImportSummary == nil, !removedImportCandidates.isEmpty else { return }
+        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty, !removedImportCandidates.isEmpty else { return }
         let candidates = (importCandidates + removedImportCandidates).sorted { $0.sourceRow < $1.sourceRow }
         removedImportCandidates = []
         importCandidates = candidates
@@ -212,7 +266,8 @@ final class TransactionsController: ObservableObject {
     }
 
     func commitBulkImport() {
-        guard !isImporting, bulkImportSummary == nil, importPreview.readyCount > 0 else { return }
+        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty,
+              importEditorCandidate == nil, importPreview.readyCount > 0 else { return }
         commit(candidates: importCandidates)
     }
 
@@ -228,7 +283,7 @@ final class TransactionsController: ObservableObject {
                 importActivity = nil
                 cancelBulkImport()
                 isShowingBulkImport = false
-                load()
+                didChangeTransactions()
             } catch {
                 importActivity = nil
                 bulkImportError = error.localizedDescription
@@ -245,7 +300,7 @@ final class TransactionsController: ObservableObject {
                 importCandidates = []
                 removedImportCandidates = []
                 importActivity = nil
-                load()
+                didChangeTransactions()
             } catch {
                 importActivity = nil
                 bulkImportError = error.localizedDescription
@@ -295,7 +350,7 @@ final class TransactionsController: ObservableObject {
                 )
                 try await service.save(transaction)
                 self.form = nil
-                load()
+                didChangeTransactions()
             } catch {
                 apply(error: error)
             }
@@ -310,7 +365,8 @@ final class TransactionsController: ObservableObject {
             defer { isMutating = false }
             do {
                 try await service.softDelete(id: id)
-                load()
+                if form?.transactionID == id { form = nil }
+                didChangeTransactions()
             } catch {
                 apply(error: error)
             }
@@ -325,7 +381,8 @@ final class TransactionsController: ObservableObject {
             defer { isMutating = false }
             do {
                 try await service.restore(id: id)
-                load()
+                if form?.transactionID == id { form = nil }
+                didChangeTransactions()
             } catch {
                 apply(error: error)
             }
@@ -423,6 +480,10 @@ final class TransactionsController: ObservableObject {
         isLoading = false
     }
 
+    private func didChangeTransactions() {
+        dataRevision += 1
+        load()
+    }
 
     private func apply(error: Error) {
         errorMessage = error.localizedDescription

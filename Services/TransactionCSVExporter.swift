@@ -2,7 +2,7 @@ import Foundation
 
 struct TransactionCSVExporter {
     func csv(_ transactions: [TransactionListItem]) -> String {
-        let header = "id,transaction_date,transaction_type,amount,currency,description,category,notes,deleted_at"
+        let header = LedgerlyCSVFormat.headers.joined(separator: ",")
         let rows = transactions.map { transaction in
             [transaction.id, transaction.transactionDate, transaction.transactionType.rawValue,
              amount(transaction.amountCents), transaction.currency, transaction.description,

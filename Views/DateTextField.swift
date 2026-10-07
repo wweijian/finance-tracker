@@ -7,12 +7,9 @@ struct DateTextField: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            TextField(title, text: $text, prompt: Text("YYYY-MM-DD"))
-                .textFieldStyle(.roundedBorder)
-                .monospacedDigit()
-                .frame(width: 112)
-                .accessibilityLabel(title)
-                .help("Type a date as YYYY-MM-DD. Leave blank for no limit.")
+            EditableDateTextField(title: title, text: $text)
+                .frame(width: 128, height: 24)
+                .help("Type a date as YYYY-MM-DD.")
             Button("Choose \(title.lowercased())", systemImage: "calendar") { showsCalendar.toggle() }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)

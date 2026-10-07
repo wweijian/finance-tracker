@@ -19,14 +19,13 @@ struct MonthlyComparisonView: View {
             }
             if let report {
                 HStack(spacing: 24) {
-                    MonthlyMetricView(title: "Income", cents: report.totals.incomeCents, monthOverMonth: report.monthOverMonth.income, yearOverYear: report.yearOverYear.income)
+                    MonthlyMetricView(title: "Monthly spending", cents: report.totals.expenseCents, monthOverMonth: report.monthOverMonth.expenses)
                     Divider()
-                    MonthlyMetricView(title: "Expenses", cents: report.totals.expenseCents, monthOverMonth: report.monthOverMonth.expenses, yearOverYear: report.yearOverYear.expenses)
+                    MonthlyMetricView(title: "Previous month", cents: report.monthOverMonth.expenses.previousCents, monthOverMonth: nil)
                     Divider()
-                    MonthlyMetricView(title: "Net balance", cents: report.totals.netCents, monthOverMonth: report.monthOverMonth.net, yearOverYear: report.yearOverYear.net)
+                    MonthlyMetricView(title: "Spending difference", cents: report.monthOverMonth.expenses.differenceCents, monthOverMonth: nil)
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                CategoryMonthlyComparisonView(categories: report.categories)
             }
         }
     }

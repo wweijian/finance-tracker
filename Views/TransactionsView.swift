@@ -15,7 +15,10 @@ struct TransactionsView: View {
                 sortOrder: $controller.sortOrder,
                 isLoading: controller.isLoading,
                 filterError: controller.filterErrorMessage,
-                edit: controller.edit
+                edit: controller.edit,
+                delete: controller.exclude,
+                restore: controller.include,
+                isMutating: controller.isMutating
             )
             Divider()
             LedgerStatusBarView(
@@ -34,10 +37,7 @@ struct TransactionsView: View {
                     exportTransactions: { localFilesController.chooseExport(controller.filteredTransactions) },
                     canExport: !controller.isLoading && !localFilesController.isWorking && !controller.filteredTransactions.isEmpty,
                     editTransaction: { controller.edit(id: selection) },
-                    excludeTransaction: { controller.exclude(id: selection) },
-                    includeTransaction: { controller.include(id: selection) },
-                    canEdit: selection != nil && !controller.isMutating,
-                    selectedTransactionIsExcluded: selectedTransaction?.isExcluded ?? false
+                    canEdit: selection != nil && !controller.isMutating
                 )
             }
         }
@@ -52,29 +52,33 @@ struct TransactionsView: View {
                 form: form,
                 categories: controller.categories,
                 errorMessage: controller.errorMessage,
-                save: controller.save
+                isMutating: controller.isMutating,
+                save: controller.save,
+                delete: { controller.exclude(id: form.transactionID) },
+                restore: { controller.include(id: form.transactionID) }
             )
         }
         .sheet(isPresented: $controller.isShowingBulkImport) {
             BulkImportView(
                 preview: controller.importPreview,
-                categories: controller.categories,
                 summary: controller.bulkImportSummary,
                 errorMessage: controller.bulkImportError,
                 activity: controller.importActivity,
                 previewCSV: controller.previewCSV,
-                revalidate: controller.revalidate,
                 removedRowCount: controller.removedImportRowCount,
-                removeRows: controller.removeImportRows,
+                removeRows: controller.requestImportRowRemoval,
                 undoRowRemovals: controller.undoImportRowRemovals,
                 commitAll: controller.commitBulkImport,
                 undo: controller.undoBulkImport,
-                cancel: controller.cancelBulkImport
+                cancel: controller.cancelBulkImport,
+                editingCandidate: $controller.importEditorCandidate,
+                categories: controller.categories,
+                editorError: controller.importEditorError,
+                editCandidate: controller.editImportCandidate,
+                saveCandidate: controller.saveImportCandidate,
+                removalIDs: $controller.importRowRemovalIDs,
+                confirmRemoval: controller.confirmImportRowRemoval
             )
         }
-    }
-
-    private var selectedTransaction: TransactionListItem? {
-        controller.filteredTransactions.first { $0.id == selection }
     }
 }

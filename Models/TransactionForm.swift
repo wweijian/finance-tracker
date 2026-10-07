@@ -9,6 +9,7 @@ struct TransactionForm: Identifiable {
     var description: String
     var category: String
     var notes: String
+    var isExcluded: Bool
 
     init(categories: [String]) {
         id = UUID().uuidString
@@ -19,6 +20,7 @@ struct TransactionForm: Identifiable {
         description = ""
         category = categories.first ?? "Other"
         notes = ""
+        isExcluded = false
     }
 
     init(transaction: FinanceTransaction, date: Date) {
@@ -30,5 +32,6 @@ struct TransactionForm: Identifiable {
         description = transaction.description
         category = transaction.category
         notes = transaction.notes ?? ""
+        isExcluded = transaction.deletedAt != nil
     }
 }

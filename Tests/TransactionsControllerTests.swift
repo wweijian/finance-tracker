@@ -53,6 +53,7 @@ final class TransactionsControllerTests: XCTestCase {
         controller.save(form)
         XCTAssertNotNil(controller.form)
         XCTAssertEqual(controller.errorMessage, "A description is required.")
+        XCTAssertEqual(controller.dataRevision, 0)
     }
 
     func testAmountRemarksAndStatusFiltersCombineAndExportOnlyMatchingRows() async throws {
@@ -232,7 +233,7 @@ final class TransactionsControllerTests: XCTestCase {
         XCTAssertEqual(excludedReport.netCents, 9700)
         controller.selectStatus(.excluded)
         try await waitForLoad(controller)
-        XCTAssertEqual(controller.filteredTransactions.first?.statusLabel, "Excluded")
+        XCTAssertEqual(controller.filteredTransactions.first?.statusLabel, "Deleted")
         XCTAssertEqual(controller.filteredTransactions.map(\.id), ["purchase"])
         controller.include(id: "purchase")
         try await waitForMutation(controller)
@@ -243,7 +244,7 @@ final class TransactionsControllerTests: XCTestCase {
         XCTAssertEqual(includedReport.netCents, 9250)
         controller.selectStatus(.included)
         try await waitForLoad(controller)
-        XCTAssertEqual(controller.filteredTransactions.first { $0.id == "purchase" }?.statusLabel, "Included")
+        XCTAssertEqual(controller.filteredTransactions.first { $0.id == "purchase" }?.statusLabel, "Active")
     }
 
     func testFailedFileChangeClearsPreviousPreviewAndCannotCommitOldRows() async throws {

@@ -12,17 +12,17 @@ struct ImportSourceBarView: View {
                 Text("Import transactions").font(.system(size: 13, weight: .semibold))
                 Label(filename ?? "No file selected", systemImage: "doc.text")
                     .font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).help(filename ?? "Choose a cleaned bank CSV")
+                    .lineLimit(1).help(filename ?? "Choose a cleaned bank CSV or a Ledgerly export")
             }
             Spacer(minLength: 12)
             Picker("Format", selection: $kind) {
                 ForEach(CSVImportKind.allCases) { kind in Text(kind.title).tag(kind) }
             }
-            .frame(width: 130)
+            .frame(width: 150)
             if filename != nil {
                 Button("Change file…", action: chooseFile)
                     .keyboardShortcut("o", modifiers: [.command])
-                    .help("Choose a debit or credit CSV from this Mac")
+                    .help("Choose a debit, credit, or Ledgerly CSV from this Mac")
             }
         }
         .disabled(isWorking)

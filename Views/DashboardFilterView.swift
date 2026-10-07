@@ -9,15 +9,23 @@ struct DashboardFilterView: View {
             Toggle("Use a custom date range", isOn: $controller.filtersDateRange)
                 .toggleStyle(.checkbox)
                 .onChange(of: controller.filtersDateRange) { controller.load() }
-            DateSelectionView(title: "From", date: $controller.startDate)
-                .onChange(of: controller.startDate) { if controller.filtersDateRange { controller.load() } }
-                .disabled(!controller.filtersDateRange)
-            DateSelectionView(title: "Through", date: $controller.endDate)
-                .onChange(of: controller.endDate) { if controller.filtersDateRange { controller.load() } }
-                .disabled(!controller.filtersDateRange)
-            Text("Dates must fall within \(String(controller.selectedYear)). Changes apply automatically.")
+            LabeledContent("From") {
+                DateTextField(title: "From date", text: $controller.startDateText)
+            }
+            LabeledContent("Through") {
+                DateTextField(title: "Through date", text: $controller.endDateText)
+            }
+            Text("Enter dates as YYYY-MM-DD within \(String(controller.selectedYear)), then apply the range.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let error = controller.errorMessage {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button("Apply date range", action: controller.applyDateRange)
+                    .buttonStyle(.borderedProminent)
+            }
         }
         .padding(18)
         .frame(width: 310)

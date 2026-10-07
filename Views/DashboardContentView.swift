@@ -14,7 +14,7 @@ struct DashboardContentView: View {
             ProgressView("Loading reports…").frame(maxWidth: .infinity, minHeight: 400)
         } else if let errorMessage {
             DashboardErrorView(message: errorMessage, retry: retry)
-        } else if snapshot.transactionCount == 0 {
+        } else if snapshot.transactionCount == 0 && section != .monthly {
             DashboardEmptyView()
         } else {
             switch section {
@@ -23,7 +23,12 @@ struct DashboardContentView: View {
             case .categories:
                 SpendingBreakdownView(categoryTotals: snapshot.categoryTotals)
             case .monthly:
-                MonthlyDetailReportView(months: snapshot.months, report: comparisonReport, selectedMonth: $comparisonMonth)
+                MonthlyDetailReportView(
+                    months: snapshot.months,
+                    spendingHistory: comparisonReport.map { snapshot.spendingHistory(through: $0) } ?? [],
+                    report: comparisonReport,
+                    selectedMonth: $comparisonMonth
+                )
             }
         }
     }

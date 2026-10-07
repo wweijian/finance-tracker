@@ -6,7 +6,7 @@ struct NetBalanceChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ReportChartHeaderView(title: "Net balance", subtitle: "Income minus expenses by month")
+            ReportChartHeaderView(title: "Net cash flow", subtitle: "Income minus expenses and investments by month")
             if months.allSatisfy({ $0.totals.transactionCount == 0 }) {
                 ChartEmptyView(message: "No transactions to calculate a net balance.")
             } else {

@@ -15,7 +15,7 @@ struct ImportFooterView: View {
             } else if activity != nil {
                 Text("Preparing preview…").font(.caption).foregroundStyle(.secondary)
             } else if readyCount + rejectedCount > 0 {
-                Text(rejectedCount > 0 ? "\(readyCount) ready · \(rejectedCount) will be skipped unless corrected" : "\(readyCount) transactions ready to import")
+                Text(rejectedCount > 0 ? "\(readyCount) ready · \(rejectedCount) will be skipped" : "\(readyCount) transactions ready to import")
                     .font(.caption).foregroundStyle(.secondary)
             } else {
                 Text("Preview before importing").font(.caption).foregroundStyle(.secondary)

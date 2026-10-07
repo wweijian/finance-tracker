@@ -5,58 +5,44 @@ struct ImportCandidateEditorView: View {
     @State private var candidate: ImportCandidate
 
     let categories: [String]
+    let errorMessage: String?
+    let isWorking: Bool
     let save: (ImportCandidate) -> Void
+    let remove: () -> Void
 
-    init(candidate: ImportCandidate, categories: [String], save: @escaping (ImportCandidate) -> Void) {
+    init(candidate: ImportCandidate, categories: [String], errorMessage: String?, isWorking: Bool,
+         save: @escaping (ImportCandidate) -> Void, remove: @escaping () -> Void) {
         _candidate = State(initialValue: candidate)
         self.categories = categories
+        self.errorMessage = errorMessage
+        self.isWorking = isWorking
         self.save = save
+        self.remove = remove
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Edit import transaction").font(.title3.weight(.semibold))
+            Text("Row \(candidate.sourceRow) · Changes apply to this import preview.")
+                .font(.caption).foregroundStyle(.secondary)
+            ImportCandidateFieldsView(candidate: $candidate, categories: categories)
+                .disabled(isWorking)
+            if let message = errorMessage ?? candidate.rejectionReason {
+                Text(message).foregroundStyle(.red).textSelection(.enabled)
+            }
             HStack {
-                Text("Edit imported transaction").font(.system(size: 13, weight: .semibold))
+                Button("Delete from preview", systemImage: "trash", role: .destructive, action: remove)
                 Spacer()
-                Text("Row \(candidate.sourceRow)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Button("Cancel", action: dismiss.callAsFunction)
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") { save(candidate) }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
             }
-            .padding(20)
-            Divider()
-            Form {
-                LabeledContent("Date") {
-                    DateTextField(title: "Transaction date", text: $candidate.transactionDate)
-                }
-                Picker("Type", selection: $candidate.transactionType) {
-                    ForEach(TransactionType.allCases, id: \.self) { type in
-                        Text(type.rawValue.capitalized).tag(type)
-                    }
-                }
-                TextField("Amount (SGD)", text: $candidate.amount)
-                TextField("Description", text: $candidate.description)
-                Picker("Category", selection: $candidate.category) {
-                    if !categories.contains(candidate.category) { Text(candidate.category).tag(candidate.category) }
-                    ForEach(categories, id: \.self) { Text($0).tag($0) }
-                }
-                TextField("Remarks (optional)", text: $candidate.remarks, axis: .vertical)
-                    .lineLimit(2...4)
-            }
-            .formStyle(.grouped)
-            if let reason = candidate.rejectionReason { ImportErrorBannerView(message: reason) }
-            Divider()
-            HStack {
-                Spacer()
-                Button("Cancel", action: dismiss.callAsFunction).keyboardShortcut(.cancelAction)
-                Button("Save and revalidate") {
-                    save(candidate)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .disabled(isWorking)
         }
-        .frame(width: 480)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(24)
+        .frame(width: 560, height: candidate.ledgerlyDetails == nil ? 540 : 600)
+        .interactiveDismissDisabled(isWorking)
     }
 }

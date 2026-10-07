@@ -60,6 +60,11 @@ final class DashboardReportServiceTests: XCTestCase {
         XCTAssertEqual(report.yearOverYear.expenses.percentage, 100)
         XCTAssertEqual(report.months.count, 1)
         XCTAssertEqual(report.months[0].monthOverMonth.expenses.percentage, 200)
+        let history = report.spendingHistory(through: report.months[0])
+        XCTAssertEqual(history.count, 12)
+        XCTAssertEqual(history.last?.startDate, "2026-03-10")
+        XCTAssertEqual(history.last?.totals.expenseCents, 300)
+        XCTAssertEqual(history[10].totals.expenseCents, 10100)
     }
 
     func testFullFebruaryIncludesJanuary31AndLeapYearComparison() async throws {
@@ -122,5 +127,69 @@ final class DashboardReportServiceTests: XCTestCase {
         XCTAssertThrowsError(try DashboardPeriod(year: 2026, startDate: "2025-12-31"))
         XCTAssertThrowsError(try DashboardPeriod(year: 2026, endDate: "2026-02-30"))
         XCTAssertThrowsError(try DashboardPeriod(year: 0))
+    }
+
+    func testInvestmentsAreSeparatedFromSpendingAndIncludedInNetCashFlow() async throws {
+        let store = try SQLiteTestStore()
+        for transaction in [
+            TransactionFixture.make(id: "salary", date: "2026-01-15", type: .income, cents: 100000, category: "Income"),
+            TransactionFixture.make(id: "food", date: "2026-01-15", cents: 20000, category: "Food"),
+            TransactionFixture.make(id: "investment", date: "2026-01-15", cents: 30000, category: "Investment"),
+            TransactionFixture.make(id: "prior-investment", date: "2025-12-15", cents: 10000, category: "Investment"),
+            TransactionFixture.make(id: "prior-food", date: "2025-12-15", cents: 10000, category: "Food"),
+            TransactionFixture.make(id: "excluded-investment", date: "2026-01-15", cents: 99999, category: "Investment", deletedAt: "2026-01-16T00:00:00Z")
+        ] { try store.repository.save(transaction) }
+        let report = try await DashboardReportService(repository: store.repository).dashboard(for: DashboardPeriod(year: 2026))
+        XCTAssertEqual(report.expenseCents, 20000)
+        XCTAssertEqual(report.investmentCents, 30000)
+        XCTAssertEqual(report.netCents, 50000)
+        XCTAssertEqual(report.transactionCount, 3)
+        XCTAssertEqual(report.categoryTotals.map(\.category), ["Food"])
+        let january = try XCTUnwrap(report.months.first)
+        XCTAssertEqual(january.categories.map(\.category), ["Food"])
+        XCTAssertEqual(january.monthOverMonth.expenses.percentage, 100)
+        XCTAssertEqual(january.amountCents(for: "Investment"), 30000)
+        XCTAssertEqual(january.amountCents(for: "Income"), 100000)
+        XCTAssertEqual(january.amountCents(for: "Transport"), 0)
+        XCTAssertEqual(january.totals.netCents, 50000)
+    }
+
+    func testSpendingHistoryIncludesPreviousYearAndEndsAtSelectedMonth() async throws {
+        let store = try SQLiteTestStore()
+        try store.repository.save(TransactionFixture.make(date: "2025-12-15", cents: 12345))
+        try store.repository.save(TransactionFixture.make(date: "2026-01-15", cents: 5000))
+        try store.repository.save(TransactionFixture.make(date: "2026-02-15", cents: 99999))
+        let report = try await DashboardReportService(repository: store.repository).dashboard(for: DashboardPeriod(year: 2026))
+        let january = try XCTUnwrap(report.months.first)
+        let history = report.spendingHistory(through: january)
+        XCTAssertEqual(history.count, 12)
+        XCTAssertEqual(history.first?.startDate, "2025-02-01")
+        XCTAssertEqual(history.last?.startDate, "2026-01-01")
+        XCTAssertEqual(history[10].totals.expenseCents, 12345)
+        XCTAssertEqual(history.last?.totals.expenseCents, 5000)
+        XCTAssertEqual(Set(history.map(\.startDate)).count, 12)
+    }
+
+    func testCategoryPercentagesUseSelectedPeriodSpending() {
+        let category = CategoryTotal(category: "Food", amountCents: 1250, previousYearCents: 99999)
+        XCTAssertEqual(category.percentage(of: 5000), "25.0%")
+        XCTAssertEqual(category.percentage(of: 0), "0%")
+    }
+
+    func testMonthlyPieUsesSelectedMonthSpendingAndExcludesInvestments() async throws {
+        let store = try SQLiteTestStore()
+        for transaction in [
+            TransactionFixture.make(date: "2026-01-15", cents: 1000, category: "Food"),
+            TransactionFixture.make(date: "2026-04-15", cents: 4000, category: "Transport"),
+            TransactionFixture.make(date: "2026-05-15", cents: 100, category: "Food"),
+            TransactionFixture.make(date: "2026-05-15", cents: 900, category: "Investment")
+        ] { try store.repository.save(transaction) }
+        let snapshot = try await DashboardReportService(repository: store.repository).dashboard(for: DashboardPeriod(year: 2026))
+        let month = snapshot.months[4]
+        XCTAssertEqual(month.spendingDistribution.map(\.category), ["Food", "Transport"])
+        XCTAssertEqual(month.spendingDistribution.map(\.amountCents), [100, 0])
+        XCTAssertEqual(month.spendingDistribution.reduce(0) { $0 + $1.amountCents }, month.totals.expenseCents)
+        XCTAssertEqual(month.spendingDistribution.first?.percentage(of: month.totals.expenseCents), "100.0%")
+        XCTAssertTrue(month.spendingDistribution.allSatisfy { $0.previousYearCents == nil })
     }
 }

@@ -6,7 +6,7 @@ struct MonthlyIncomeExpenseChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ReportChartHeaderView(title: "Income & expenses")
+            ReportChartHeaderView(title: "Income, expenses & investments")
             if months.allSatisfy({ $0.totals.transactionCount == 0 }) {
                 ChartEmptyView(message: "No income or expenses in this period.")
             } else {
@@ -23,8 +23,14 @@ struct MonthlyIncomeExpenseChart: View {
                         .cornerRadius(2)
                         .accessibilityLabel("\(month.label) expenses")
                         .accessibilityValue(CurrencyFormatter().string(for: month.totals.expenseCents))
+                    BarMark(x: .value("Month", month.label), y: .value("SGD", Decimal(month.totals.investmentCents) / 100))
+                        .foregroundStyle(by: .value("Type", "Investments"))
+                        .position(by: .value("Type", "Investments"))
+                        .cornerRadius(2)
+                        .accessibilityLabel("\(month.label) investments")
+                        .accessibilityValue(CurrencyFormatter().string(for: month.totals.investmentCents))
                 }
-                .chartForegroundStyleScale(["Income": Color.blue, "Expenses": Color.gray.opacity(0.55)])
+                .chartForegroundStyleScale(["Income": Color.teal, "Expenses": Color.orange, "Investments": Color.purple])
                 .chartLegend(position: .top, alignment: .leading, spacing: 14)
                 .chartYAxis {
                     AxisMarks(position: .leading) {
@@ -32,8 +38,8 @@ struct MonthlyIncomeExpenseChart: View {
                         AxisValueLabel()
                     }
                 }
-                .frame(height: 235)
-                .accessibilityLabel("Monthly income versus expense bar chart in Singapore dollars")
+                .frame(height: 300)
+                .accessibilityLabel("Monthly income, expenses and investments in Singapore dollars")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

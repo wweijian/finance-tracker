@@ -7,33 +7,37 @@ final class DashboardController: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var selectedYear: Int
+    @Published private(set) var periodLabel: String
     @Published var filtersDateRange = false
-    @Published var startDate: Date
-    @Published var endDate: Date
+    @Published var startDateText: String
+    @Published var endDateText: String
     @Published var comparisonMonth: Int
 
     private let reportService: any DashboardReporting
     private var requestID = UUID()
-    private let dateFormatter = TransactionDateFormatter()
+    private let currentDate: () -> Date
 
-    init(reportService: any DashboardReporting, selectedYear: Int = Calendar.current.component(.year, from: Date())) {
+    init(reportService: any DashboardReporting, selectedYear: Int? = nil, currentDate: @escaping () -> Date = Date.init) {
         self.reportService = reportService
-        self.selectedYear = selectedYear
-        startDate = TransactionDateFormatter().date(from: String(format: "%04d-01-01", selectedYear))!
-        endDate = TransactionDateFormatter().date(from: String(format: "%04d-12-31", selectedYear))!
-        comparisonMonth = Calendar.current.component(.month, from: Date())
+        self.currentDate = currentDate
+        let now = currentDate()
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: now)!
+        let year = min(selectedYear ?? Calendar.current.component(.year, from: previousMonth), Calendar.current.component(.year, from: now))
+        self.selectedYear = year
+        periodLabel = String(year)
+        startDateText = String(format: "%04d-01-01", year)
+        endDateText = String(format: "%04d-12-31", year)
+        comparisonMonth = Calendar.current.component(.month, from: previousMonth)
     }
 
+    var currentYear: Int { Calendar.current.component(.year, from: currentDate()) }
+
     var availableYears: [Int] {
-        Set(snapshot.availableYears).union([selectedYear, Calendar.current.component(.year, from: Date())]).sorted(by: >)
+        Set(snapshot.availableYears).union([selectedYear, currentYear]).filter { $0 <= currentYear }.sorted(by: >)
     }
 
     var comparisonReport: MonthlyReport? {
         snapshot.months.first { $0.month == comparisonMonth } ?? snapshot.months.last
-    }
-
-    var periodLabel: String {
-        filtersDateRange ? "\(dateFormatter.string(from: startDate)) – \(dateFormatter.string(from: endDate))" : String(selectedYear)
     }
 
     func load() {
@@ -43,9 +47,10 @@ final class DashboardController: ObservableObject {
         do {
             let period = try DashboardPeriod(
                 year: selectedYear,
-                startDate: filtersDateRange ? dateFormatter.string(from: startDate) : nil,
-                endDate: filtersDateRange ? dateFormatter.string(from: endDate) : nil
+                startDate: filtersDateRange ? startDateText : nil,
+                endDate: filtersDateRange ? endDateText : nil
             )
+            periodLabel = filtersDateRange ? "\(period.startDate) – \(period.endDate)" : String(period.year)
             isLoading = true
             Task { [reportService] in
                 do {
@@ -65,15 +70,27 @@ final class DashboardController: ObservableObject {
     }
 
     func selectYear(_ year: Int) {
-        guard (2...9998).contains(year) else { return }
+        guard (2...min(currentYear, 9998)).contains(year) else { return }
         selectedYear = year
-        startDate = dateFormatter.date(from: String(format: "%04d-01-01", year))!
-        endDate = dateFormatter.date(from: String(format: "%04d-12-31", year))!
+        startDateText = String(format: "%04d-01-01", year)
+        endDateText = String(format: "%04d-12-31", year)
         load()
     }
 
     func showPreviousYear() { selectYear(selectedYear - 1) }
     func showNextYear() { selectYear(selectedYear + 1) }
+
+    func applyDateRange() {
+        filtersDateRange = true
+        load()
+    }
+
+    func showPreviousMonth() {
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentDate())!
+        comparisonMonth = Calendar.current.component(.month, from: previousMonth)
+        filtersDateRange = false
+        selectYear(Calendar.current.component(.year, from: previousMonth))
+    }
 
     private func fail(_ error: Error) {
         snapshot = .empty

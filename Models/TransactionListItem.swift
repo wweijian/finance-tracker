@@ -15,7 +15,7 @@ struct TransactionListItem: FetchableRecord, Decodable, Identifiable, Hashable {
     var isExcluded: Bool { deletedAt != nil }
     var amount: Decimal { Decimal(amountCents) / 100 }
     var remarks: String { notes ?? "" }
-    var statusLabel: String { isExcluded ? "Excluded" : "Included" }
+    var statusLabel: String { isExcluded ? "Deleted" : "Active" }
 
     enum CodingKeys: String, CodingKey {
         case id

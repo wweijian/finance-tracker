@@ -15,7 +15,7 @@ struct LedgerStatusBarView: View {
             } else {
                 Text(isLoading ? "Loading transactions…" : "\(transactionCount) transactions")
                 if statusFilter != .included {
-                    Text(statusFilter == .excluded ? "· Excluded only" : "· Including excluded").foregroundStyle(.tertiary)
+                    Text(statusFilter == .excluded ? "· Deleted only" : "· Including deleted").foregroundStyle(.tertiary)
                 }
             }
             Spacer()

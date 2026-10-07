@@ -29,6 +29,9 @@ struct CSVTransactionParser: Sendable {
 
     private func isHeader(_ row: [String], for kind: CSVImportKind) -> Bool {
         let headers = row.map(normalize)
+        if kind == .ledgerly {
+            return headers == LedgerlyCSVFormat.headers
+        }
         let optionalHeaders = headers.filter { $0 == "remarks" || $0 == "notes" }
         let requiredHeaders = headers.filter { $0 != "remarks" && $0 != "notes" }
         return optionalHeaders.count <= 1 && requiredHeaders == expectedHeaders(for: kind).map(normalize)
@@ -36,6 +39,8 @@ struct CSVTransactionParser: Sendable {
 
     private func expectedHeaders(for kind: CSVImportKind) -> [String] {
         switch kind {
+        case .ledgerly:
+            return LedgerlyCSVFormat.headers
         case .debit:
             return [
                 "Transaction Date",
@@ -70,7 +75,7 @@ struct CSVTransactionParser: Sendable {
 
     private func candidateHeader(in rows: [[String]]) -> String? {
         guard let row = rows.first(where: { row in
-            row.contains { normalize($0) == "transaction date" }
+            row.contains { ["transaction date", "transaction_date"].contains(normalize($0)) }
         }) else {
             return nil
         }
@@ -109,6 +114,9 @@ struct CSVTransactionParser: Sendable {
         kind: CSVImportKind,
         headers: [String: Int]
     ) -> ImportCandidate {
+        if kind == .ledgerly {
+            return parseLedgerlyCandidate(row, sourceRow: sourceRow, headers: headers)
+        }
         let dateText = value(named: ["transaction date", "date"], in: row, headers: headers)
         let description = value(named: [descriptionColumn(for: kind)], in: row, headers: headers)
         let debit = value(named: ["debit amount"], in: row, headers: headers)
@@ -129,6 +137,37 @@ struct CSVTransactionParser: Sendable {
         )
     }
 
+    private func parseLedgerlyCandidate(
+        _ row: [String],
+        sourceRow: Int,
+        headers: [String: Int]
+    ) -> ImportCandidate {
+        let type = value(named: ["transaction_type"], in: row, headers: headers)
+        let deletedAt = value(named: ["deleted_at"], in: row, headers: headers)
+        return ImportCandidate(
+            id: UUID().uuidString,
+            sourceRow: sourceRow,
+            transactionDate: value(named: ["transaction_date"], in: row, headers: headers),
+            transactionType: TransactionType(rawValue: type) ?? .expense,
+            amount: value(named: ["amount"], in: row, headers: headers),
+            description: rawValue(named: "description", in: row, headers: headers),
+            category: value(named: ["category"], in: row, headers: headers),
+            rejectionReason: nil,
+            remarks: rawValue(named: "notes", in: row, headers: headers),
+            ledgerlyDetails: LedgerlyImportDetails(
+                transactionID: value(named: ["id"], in: row, headers: headers),
+                transactionType: type,
+                currency: value(named: ["currency"], in: row, headers: headers),
+                deletedAt: deletedAt.isEmpty ? nil : deletedAt
+            )
+        )
+    }
+
+    private func rawValue(named name: String, in row: [String], headers: [String: Int]) -> String {
+        guard let index = headers[name], row.indices.contains(index) else { return "" }
+        return row[index]
+    }
+
     private func value(named names: [String], in row: [String], headers: [String: Int]) -> String {
         for name in names {
             if let index = headers[name], row.indices.contains(index) {
@@ -140,7 +179,7 @@ struct CSVTransactionParser: Sendable {
 
     private func descriptionColumn(for kind: CSVImportKind) -> String {
         switch kind {
-        case .debit:
+        case .debit, .ledgerly:
             return "description"
         case .credit:
             return "transaction description"

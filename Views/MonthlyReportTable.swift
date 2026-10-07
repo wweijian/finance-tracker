@@ -13,7 +13,7 @@ struct MonthlyReportTable: View {
                 Text("Select a month to inspect its categories")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Table(months.sorted(using: sortOrder), selection: Binding<Int?>(get: { selectedMonth }, set: { if let month = $0 { selectedMonth = month } }), sortOrder: $sortOrder) {
+            Table(Array(months.prefix(12)).sorted(using: sortOrder), selection: Binding<Int?>(get: { selectedMonth }, set: { if let month = $0 { selectedMonth = month } }), sortOrder: $sortOrder) {
                 TableColumn("Month", value: \.month) { month in
                     Text(month.label).help("\(month.startDate) through \(month.endDate)")
                 }.width(min: 44, ideal: 50)
@@ -21,24 +21,27 @@ struct MonthlyReportTable: View {
                     Text(CurrencyFormatter().string(for: month.totals.incomeCents)).monospacedDigit()
                 }.width(min: 90, ideal: 110)
                 TableColumn("Income change", sortUsing: KeyPathComparator(\MonthlyReport.monthOverMonth.income.percentage)) { month in
-                    ReportChangeView(monthOverMonth: month.monthOverMonth.income, yearOverYear: month.yearOverYear.income)
+                    ReportChangeView(monthOverMonth: month.monthOverMonth.income)
                 }.width(min: 100, ideal: 115)
-                TableColumn("Expenses", value: \.totals.expenseCents) { month in
+                TableColumn("Spending", value: \.totals.expenseCents) { month in
                     Text(CurrencyFormatter().string(for: month.totals.expenseCents)).monospacedDigit()
                 }.width(min: 90, ideal: 110)
-                TableColumn("Expense change", sortUsing: KeyPathComparator(\MonthlyReport.monthOverMonth.expenses.percentage)) { month in
-                    ReportChangeView(monthOverMonth: month.monthOverMonth.expenses, yearOverYear: month.yearOverYear.expenses)
+                TableColumn("Spending change", sortUsing: KeyPathComparator(\MonthlyReport.monthOverMonth.expenses.percentage)) { month in
+                    ReportChangeView(monthOverMonth: month.monthOverMonth.expenses)
                 }.width(min: 100, ideal: 115)
+                TableColumn("Investments", value: \.totals.investmentCents) { month in
+                    Text(CurrencyFormatter().string(for: month.totals.investmentCents)).monospacedDigit()
+                }.width(min: 90, ideal: 110)
                 TableColumn("Net balance", value: \.totals.netCents) { month in
                     Text(CurrencyFormatter().string(for: month.totals.netCents)).monospacedDigit()
                 }.width(min: 90, ideal: 110)
                 TableColumn("Net change", sortUsing: KeyPathComparator(\MonthlyReport.monthOverMonth.net.percentage)) { month in
-                    ReportChangeView(monthOverMonth: month.monthOverMonth.net, yearOverYear: month.yearOverYear.net)
+                    ReportChangeView(monthOverMonth: month.monthOverMonth.net)
                 }.width(min: 100, ideal: 115)
             }
             .tableStyle(.bordered(alternatesRowBackgrounds: true))
-            .frame(height: CGFloat(months.count * 42 + 32))
-            .accessibilityLabel("Monthly income, expenses, net balance and percentage changes. Click column headings to sort. Change columns sort by month-on-month percentage.")
+            .frame(height: CGFloat(min(months.count, 12) * 24 + 32))
+            .accessibilityLabel("Monthly income, spending, investments, net balance and percentage changes. Click column headings to sort. Change columns sort by month-on-month percentage.")
         }
     }
 }

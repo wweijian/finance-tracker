@@ -20,12 +20,18 @@ actor DashboardReportService: DashboardReporting {
         let priorYear = rows(transactions, from: priorDates.start, through: priorDates.end)
         let totals = totals(current)
         let years = Set(transactions.compactMap { Int($0.transactionDate.prefix(4)) })
+        let previousYearMonths = period.year > 2
+            ? monthlyReports(transactions, period: try DashboardPeriod(year: period.year - 1)) : []
+        let months = monthlyReports(transactions, period: period)
+        let fullYear = try DashboardPeriod(year: period.year)
+        let historyMonths = period == fullYear ? months : monthlyReports(transactions, period: fullYear)
         return DashboardSnapshot(
             totals: totals,
             yearOverYear: ReportComparison(current: totals, previous: self.totals(priorYear)),
-            months: monthlyReports(transactions, period: period),
+            months: months,
             categoryTotals: categoryTotals(current, previous: priorYear),
-            availableYears: years.union([period.year, calendar.component(.year, from: Date())]).sorted(by: >)
+            availableYears: years.union([period.year, calendar.component(.year, from: Date())]).sorted(by: >),
+            spendingHistoryMonths: previousYearMonths + historyMonths
         )
     }
 
@@ -53,7 +59,8 @@ actor DashboardReportService: DashboardReporting {
             month: month, startDate: from, endDate: through, totals: totals,
             monthOverMonth: ReportComparison(current: totals, previous: self.totals(previous)),
             yearOverYear: ReportComparison(current: totals, previous: self.totals(priorYear)),
-            categories: monthlyCategories(current, previous: previous, priorYear: priorYear)
+            categories: monthlyCategories(current, previous: previous, priorYear: priorYear),
+            categoryAmounts: current.reduce(into: [:]) { $0[$1.category, default: 0] += $1.amountCents }
         )
     }
 
@@ -66,13 +73,18 @@ actor DashboardReportService: DashboardReporting {
             result.transactionCount += 1
             switch transaction.transactionType {
             case .income: result.incomeCents += transaction.amountCents
-            case .expense: result.expenseCents += transaction.amountCents
+            case .expense:
+                if transaction.category == "Investment" {
+                    result.investmentCents += transaction.amountCents
+                } else {
+                    result.expenseCents += transaction.amountCents
+                }
             }
         }
     }
 
     private func spending(_ transactions: [TransactionListItem]) -> [String: Int] {
-        transactions.filter { $0.transactionType == .expense }.reduce(into: [:]) { totals, transaction in
+        transactions.filter { $0.transactionType == .expense && $0.category != "Investment" }.reduce(into: [:]) { totals, transaction in
             totals[transaction.category, default: 0] += transaction.amountCents
         }
     }
@@ -90,7 +102,7 @@ actor DashboardReportService: DashboardReporting {
         let amounts = spending(current)
         let prior = spending(previous)
         let lastYear = spending(priorYear)
-        return Set(amounts.keys).union(prior.keys).union(lastYear.keys).sorted().map { category in
+        return Set(amounts.keys).union(prior.keys).sorted().map { category in
             let amount = amounts[category, default: 0]
             return CategoryMonthlyReport(
                 category: category, amountCents: amount,

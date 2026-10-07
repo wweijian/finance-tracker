@@ -10,35 +10,29 @@ struct BulkImportSummaryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Import complete").font(.system(size: 13, weight: .semibold))
-                if let filename { Text(filename).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            Divider()
-            VStack(spacing: 20) {
-                Image(systemName: "checkmark.circle")
-                    .font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2).foregroundStyle(.teal)
                     .accessibilityHidden(true)
-                Grid(alignment: .leading, horizontalSpacing: 36, verticalSpacing: 10) {
-                    GridRow {
-                        Text("Imported transactions")
-                        Text(String(summary.acceptedCount)).monospacedDigit().fontWeight(.semibold)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Imported \(summary.acceptedCount) transactions")
+                        .font(.headline)
+                    if summary.rejectedCount > 0 {
+                        Text("\(summary.rejectedCount) rows skipped")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    GridRow {
-                        Text("Skipped rows").foregroundStyle(.secondary)
-                        Text(String(summary.rejectedCount)).monospacedDigit().foregroundStyle(.secondary)
+                    if let filename {
+                        Text(filename).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
-                Text("The CSV file is unchanged.").font(.caption).foregroundStyle(.secondary)
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .textBackgroundColor))
+            .padding(24)
             if let errorMessage { ImportErrorBannerView(message: errorMessage) }
             Divider()
             HStack {
                 Button("Undo import", role: .destructive, action: undo)
+                    .help("Remove only the transactions added by this import")
                     .disabled(isUndoing || summary.acceptedCount == 0)
                 if isUndoing { ProgressView().controlSize(.small).accessibilityLabel("Undoing import") }
                 Spacer()
@@ -50,8 +44,7 @@ struct BulkImportSummaryView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
         }
-        .frame(width: 480)
-        .frame(minHeight: 320)
+        .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color(nsColor: .windowBackgroundColor))
     }

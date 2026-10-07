@@ -3,12 +3,13 @@ import SwiftUI
 struct ImportPreviewView: View {
     let preview: ImportPreview
     let isWorking: Bool
-    let edit: (ImportCandidate) -> Void
     let removedRowCount: Int
     let remove: (Set<String>) -> Void
     let undoRemovals: () -> Void
+    let edit: (String) -> Void
     @State private var filter: ImportRowFilter = .all
     @State private var selection: Set<String> = []
+    @State private var checkedRowIDs: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,23 +39,43 @@ struct ImportPreviewView: View {
                 ContentUnavailableView(
                     preview.candidates.isEmpty ? "No rows left to import" : filter == .needsAttention ? "No rows need attention" : "No ready rows",
                     systemImage: filter == .needsAttention ? "checkmark.circle" : "list.bullet.rectangle",
-                    description: Text(preview.candidates.isEmpty ? "Undo removals to bring rows back, or choose another CSV." : filter == .needsAttention ? "The remaining rows have passed validation." : "Review the rows that need attention, then correct their dates, amounts, or categories.")
+                    description: Text(preview.candidates.isEmpty ? "Undo removals to bring rows back, or choose another CSV." : filter == .needsAttention ? "The remaining rows have passed validation." : "Edit rejected rows in the preview to correct them, or choose another CSV.")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ImportCandidateTableView(candidates: visibleCandidates, selection: $selection, edit: edit, remove: remove)
+                ImportCandidateTableView(candidates: visibleCandidates, selection: $selection,
+                                         checkedRowIDs: $checkedRowIDs, edit: edit, remove: remove)
             }
             Divider()
-            ImportRowDetailView(candidate: selectedCandidate, selectedCount: selection.count, isWorking: isWorking, edit: edit, remove: { remove(selection) })
+            ImportRowDetailView(
+                candidate: selectedCandidate,
+                highlightedCount: selection.count,
+                checkedCount: checkedRowIDs.count,
+                allRowsChecked: allRowsChecked,
+                hasVisibleRows: !visibleCandidates.isEmpty,
+                isWorking: isWorking,
+                toggleSelectAll: toggleSelectAll,
+                edit: { if let selectedCandidate { edit(selectedCandidate.id) } },
+                remove: { remove(checkedRowIDs) }
+            )
         }
         .disabled(isWorking)
         .onChange(of: filter) { selection = [] }
         .onChange(of: preview.candidates) {
             selection.formIntersection(visibleCandidates.map(\.id))
+            checkedRowIDs.formIntersection(preview.candidates.map(\.id))
         }
     }
 
     private var visibleCandidates: [ImportCandidate] { preview.rows(matching: filter) }
+    private var allRowsChecked: Bool {
+        !visibleCandidates.isEmpty && Set(visibleCandidates.map(\.id)).isSubset(of: checkedRowIDs)
+    }
+    private func toggleSelectAll() {
+        let visibleIDs = Set(visibleCandidates.map(\.id))
+        if allRowsChecked { checkedRowIDs.subtract(visibleIDs) }
+        else { checkedRowIDs.formUnion(visibleIDs) }
+    }
     private var selectedCandidate: ImportCandidate? {
         selection.count == 1 ? visibleCandidates.first { selection.contains($0.id) } : nil
     }

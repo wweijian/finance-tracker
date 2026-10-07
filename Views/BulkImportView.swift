@@ -7,22 +7,26 @@ struct BulkImportView: View {
     @State private var selectedKind: CSVImportKind = .debit
     @State private var selectedFileURL: URL?
     @State private var fileSelectionError: String?
-    @State private var editingCandidate: ImportCandidate?
     @State private var showsSkipWarning = false
 
     let preview: ImportPreview
-    let categories: [String]
     let summary: BulkImportSummary?
     let errorMessage: String?
     let activity: ImportActivity?
     let previewCSV: (URL, CSVImportKind) -> Void
-    let revalidate: (ImportCandidate) -> Void
     let removedRowCount: Int
     let removeRows: (Set<String>) -> Void
     let undoRowRemovals: () -> Void
     let commitAll: () -> Void
     let undo: () -> Void
     let cancel: () -> Void
+    @Binding var editingCandidate: ImportCandidate?
+    let categories: [String]
+    let editorError: String?
+    let editCandidate: (String) -> Void
+    let saveCandidate: (ImportCandidate) -> Void
+    @Binding var removalIDs: Set<String>
+    let confirmRemoval: (Set<String>) -> Void
 
     var body: some View {
         Group {
@@ -40,18 +44,26 @@ struct BulkImportView: View {
             }
         }
         .interactiveDismissDisabled(activity != nil)
-        .onExitCommand { if activity == nil { close() } }
+        .onExitCommand { if activity == nil && editingCandidate == nil { close() } }
+        .sheet(item: $editingCandidate) { candidate in
+            ImportCandidateEditorView(
+                candidate: candidate,
+                categories: categories,
+                errorMessage: editorError,
+                isWorking: activity != nil,
+                save: saveCandidate,
+                remove: { removeRows([candidate.id]) }
+            )
+            .modifier(ImportRemovalConfirmationModifier(rowIDs: $removalIDs, isActive: true, confirm: confirmRemoval))
+        }
         .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
             selectFile(result)
         }
-        .sheet(item: $editingCandidate) { candidate in
-            ImportCandidateEditorView(candidate: candidate, categories: categories, save: revalidate)
-        }
         .alert("Import without rejected rows?", isPresented: $showsSkipWarning) {
             Button("Cancel", role: .cancel) {}
-            Button("Skip rows and import", role: .destructive, action: commitAll)
+            Button("Skip rows and import", action: commitAll)
         } message: {
-            Text("\(preview.rejectedCount) rows still need attention. Ledgerly will import \(preview.readyCount) ready transactions and skip the rejected rows. The CSV file stays unchanged.")
+            Text("Ledgerly will import \(preview.readyCount) ready transactions and skip \(preview.rejectedCount) rejected rows. The CSV file stays unchanged.")
         }
     }
 
@@ -70,10 +82,10 @@ struct BulkImportView: View {
                 activity: activity,
                 errorMessage: fileSelectionError ?? errorMessage,
                 chooseFile: chooseFile,
-                edit: edit,
                 removedRowCount: removedRowCount,
                 remove: removeRows,
-                undoRemovals: undoRowRemovals
+                undoRemovals: undoRowRemovals,
+                edit: editCandidate
             )
             Divider()
             ImportFooterView(
@@ -85,6 +97,7 @@ struct BulkImportView: View {
             )
         }
         .frame(width: isCompact ? 600 : 1_100, height: isCompact ? 380 : 620)
+        .modifier(ImportRemovalConfirmationModifier(rowIDs: $removalIDs, isActive: editingCandidate == nil, confirm: confirmRemoval))
         .onChange(of: selectedKind) {
             guard let selectedFileURL, activity == nil else { return }
             fileSelectionError = nil
@@ -110,11 +123,6 @@ struct BulkImportView: View {
             guard (error as? CocoaError)?.code != .userCancelled else { return }
             fileSelectionError = error.localizedDescription
         }
-    }
-
-    private func edit(_ candidate: ImportCandidate) {
-        guard activity == nil else { return }
-        editingCandidate = candidate
     }
 
     private func requestImport() {

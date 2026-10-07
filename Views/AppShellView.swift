@@ -15,20 +15,13 @@ struct AppShellView: View {
             }
         }
         .frame(minWidth: 1_100, minHeight: 680)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    screen = screen == .dashboard ? .transactions : .dashboard
-                } label: {
-                    Label(
-                        screen == .dashboard ? "Transactions" : "Overview",
-                        systemImage: screen == .dashboard ? "list.bullet.rectangle" : "chart.xyaxis.line"
-                    )
-                }
-                .labelStyle(.titleAndIcon)
-                .help(screen == .dashboard ? "Show transactions" : "Show overview")
+        .overlay(alignment: .bottomTrailing) {
+            AppScreenFloatingButton(screen: $screen)
                 .disabled(localFilesController.isWorking || localFilesController.pendingRestore != nil)
-            }
+                .padding(.trailing, 24)
+                .padding(.bottom, 48)
+        }
+        .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 LocalFileActionsView(controller: localFilesController)
                     .disabled(transactionsController.isImporting || transactionsController.isMutating || transactionsController.form != nil || transactionsController.isShowingBulkImport)
@@ -36,6 +29,9 @@ struct AppShellView: View {
         }
         .onChange(of: localFilesController.restoreRevision) {
             transactionsController.resetAfterDatabaseRestore()
+            dashboardController.load()
+        }
+        .onChange(of: transactionsController.dataRevision) {
             dashboardController.load()
         }
         .alert("Replace the current database?", isPresented: Binding(

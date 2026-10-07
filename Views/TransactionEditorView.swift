@@ -3,16 +3,24 @@ import SwiftUI
 struct TransactionEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var form: TransactionForm
+    @State private var isDateValid = true
 
     let categories: [String]
     let save: (TransactionForm) -> Void
     let errorMessage: String?
+    let isMutating: Bool
+    let delete: () -> Void
+    let restore: () -> Void
 
-    init(form: TransactionForm, categories: [String], errorMessage: String?, save: @escaping (TransactionForm) -> Void) {
+    init(form: TransactionForm, categories: [String], errorMessage: String?, isMutating: Bool,
+         save: @escaping (TransactionForm) -> Void, delete: @escaping () -> Void, restore: @escaping () -> Void) {
         _form = State(initialValue: form)
         self.categories = categories
         self.save = save
         self.errorMessage = errorMessage
+        self.isMutating = isMutating
+        self.delete = delete
+        self.restore = restore
     }
 
     var body: some View {
@@ -21,7 +29,7 @@ struct TransactionEditorView: View {
                 .font(.title3.weight(.semibold))
 
             Form {
-                DateSelectionView(title: "Date", date: $form.date)
+                DateSelectionView(title: "Date", date: $form.date, validationChanged: { isDateValid = $0 })
                 Picker("Type", selection: $form.transactionType) {
                     ForEach(TransactionType.allCases, id: \.self) { type in
                         Text(type.rawValue.capitalized).tag(type)
@@ -37,27 +45,38 @@ struct TransactionEditorView: View {
                         Text(category).tag(category)
                     }
                 }
-                TextField("Remarks (optional)", text: $form.notes, axis: .vertical)
-                    .lineLimit(2...4)
+                RemarksEditorView(text: $form.notes)
             }
             .formStyle(.grouped)
+            .disabled(isMutating)
 
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red).textSelection(.enabled)
             }
 
             HStack {
+                if form.transactionID != nil {
+                    if form.isExcluded {
+                        Button("Restore transaction", systemImage: "arrow.uturn.backward", action: restore)
+                            .disabled(isMutating)
+                    } else {
+                        Button("Delete transaction", systemImage: "trash", role: .destructive, action: delete)
+                            .disabled(isMutating)
+                    }
+                }
                 Spacer()
                 Button("Cancel", action: dismiss.callAsFunction)
                     .keyboardShortcut(.cancelAction)
+                    .disabled(isMutating)
                 Button("Save") {
                     save(form)
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
+                .disabled(isMutating || !isDateValid)
             }
         }
         .padding(24)
-        .frame(width: 460)
+        .frame(width: 560, height: 540)
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SpendingBarChart: View {
     let categoryTotals: [CategoryTotal]
+    private var totalCents: Int { categoryTotals.reduce(0) { $0 + $1.amountCents } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -39,6 +40,8 @@ struct SpendingBarChart: View {
                         Text(total.category)
                         Spacer()
                         Text(CurrencyFormatter().string(for: total.amountCents)).monospacedDigit()
+                        Text(total.percentage(of: totalCents))
+                            .monospacedDigit().frame(width: 60, alignment: .trailing)
                         Text("YoY: \(total.yearOverYear.description)").foregroundStyle(.secondary)
                     }
                     .font(.caption)

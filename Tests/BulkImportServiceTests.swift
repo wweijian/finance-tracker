@@ -98,6 +98,34 @@ final class BulkImportServiceTests: XCTestCase {
         XCTAssertEqual(try repository.transactions(includeDeleted: false).map(\.id), ["existing"])
     }
 
+    func testPreviouslyUndoneCSVCanBeReimportedAfterReopeningDatabase() async throws {
+        let url = directoryURL.appendingPathComponent("debit.csv")
+        let csv = "Transaction Date,Transaction Code,Description,Transaction Ref1,Transaction Ref2,Transaction Ref3,Status,Debit Amount,Credit Amount,Category\n08 May 2026,ICT,Coffee,,,,Settled,4.50,,Food & Dining"
+        try csv.write(to: url, atomically: true, encoding: .utf8)
+        let original = try Data(contentsOf: url)
+        let candidates = try await service.previewFile(at: url, kind: .debit, categories: ["Food & Dining"])
+        let firstImport = try await service.commit(candidates, categories: ["Food & Dining"])
+        XCTAssertEqual(firstImport.acceptedCount, 1)
+        try await service.undo(firstImport)
+
+        let schemaURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/schema.sql")
+        let reopened = try SQLiteTransactionRepository(databaseURL: directoryURL.appendingPathComponent("test.sqlite"), schemaURL: schemaURL)
+        let reopenedService = BulkImportService(repository: reopened)
+        let retry = try await reopenedService.previewFile(at: url, kind: .debit, categories: ["Food & Dining"])
+        XCTAssertTrue(retry.allSatisfy(\.isReady))
+        let secondImport = try await reopenedService.commit(retry, categories: ["Food & Dining"])
+        XCTAssertEqual(secondImport.importedTransactionIDs, firstImport.importedTransactionIDs)
+        XCTAssertEqual(secondImport.rejectedCount, 0)
+        XCTAssertEqual(try reopened.transactions(includeDeleted: true).count, 1)
+        XCTAssertEqual(try reopened.transactions(includeDeleted: false).count, 1)
+        let duplicate = try await reopenedService.previewFile(at: url, kind: .debit, categories: ["Food & Dining"])
+        XCTAssertTrue(duplicate.allSatisfy { !$0.isReady })
+        try await reopenedService.undo(secondImport)
+        XCTAssertTrue(try reopened.transactions(includeDeleted: false).isEmpty)
+        XCTAssertEqual(try Data(contentsOf: url), original)
+    }
+
     func testFailedBatchRollsBackEveryImportedRow() throws {
         let valid = transaction(id: "valid", description: "Valid purchase")
         var invalid = transaction(id: "invalid", description: "Invalid purchase")

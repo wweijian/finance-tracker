@@ -42,20 +42,28 @@ final class SQLiteTransactionRepository: TransactionRepository, DatabaseFileRepo
 
     func insertIfNew(_ transactions: [FinanceTransaction]) throws -> [String] {
         try database.write { db in
-            var insertedIDs: [String] = []
-            for transaction in transactions {
-                let exists = try isDuplicate(
-                    in: db,
-                    date: transaction.transactionDate,
-                    amountCents: transaction.amountCents,
-                    description: transaction.description
-                )
-                guard !exists else { continue }
-                try transaction.insert(db)
-                insertedIDs.append(transaction.id)
-            }
-            return insertedIDs
+            try transactions.compactMap { try insertOrRestore($0, in: db) }
         }
+    }
+
+    private func insertOrRestore(_ transaction: FinanceTransaction, in database: Database) throws -> String? {
+        let existing = try FinanceTransaction.fetchOne(database, sql: """
+            SELECT * FROM transactions
+            WHERE transaction_date = ? AND amount_cents = ? AND description = ?
+            """, arguments: [transaction.transactionDate, transaction.amountCents, transaction.description])
+        guard let existing else {
+            guard try FinanceTransaction.fetchOne(database, key: transaction.id) == nil else { return nil }
+            try transaction.insert(database)
+            return transaction.id
+        }
+        guard existing.deletedAt != nil, transaction.deletedAt == nil else { return nil }
+        // Reuse the deleted row so a re-import preserves SQLite's unique transaction identity.
+        var restored = transaction
+        restored.id = existing.id
+        restored.dateCreated = existing.dateCreated
+        restored.deletedAt = nil
+        try restored.update(database)
+        return restored.id
     }
 
     func isDuplicate(date: String, amountCents: Int, description: String) throws -> Bool {
@@ -110,6 +118,7 @@ final class SQLiteTransactionRepository: TransactionRepository, DatabaseFileRepo
             SELECT EXISTS(
                 SELECT 1 FROM transactions
                 WHERE transaction_date = ? AND amount_cents = ? AND description = ?
+                  AND deleted_at IS NULL
             )
             """, arguments: [date, amountCents, description]) == 1
     }

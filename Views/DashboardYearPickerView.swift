@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardYearPickerView: View {
     let year: Int
+    let currentYear: Int
     let availableYears: [Int]
     let selectYear: (Int) -> Void
     let showPreviousYear: () -> Void
@@ -18,7 +19,7 @@ struct DashboardYearPickerView: View {
             .labelsHidden()
             .frame(width: 82)
             Button("Next year", systemImage: "chevron.right", action: showNextYear)
-                .disabled(year >= 9998)
+                .disabled(year >= currentYear)
                 .help("Next year")
         }
         .labelStyle(.iconOnly)

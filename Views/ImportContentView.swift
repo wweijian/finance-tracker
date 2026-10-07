@@ -6,10 +6,10 @@ struct ImportContentView: View {
     let activity: ImportActivity?
     let errorMessage: String?
     let chooseFile: () -> Void
-    let edit: (ImportCandidate) -> Void
     let removedRowCount: Int
     let remove: (Set<String>) -> Void
     let undoRemovals: () -> Void
+    let edit: (String) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,7 +21,7 @@ struct ImportContentView: View {
                     ImportFileSelectionView(filename: filename, errorMessage: errorMessage, chooseFile: chooseFile)
                 }
             } else {
-                ImportPreviewView(preview: preview, isWorking: activity != nil, edit: edit, removedRowCount: removedRowCount, remove: remove, undoRemovals: undoRemovals)
+                ImportPreviewView(preview: preview, isWorking: activity != nil, removedRowCount: removedRowCount, remove: remove, undoRemovals: undoRemovals, edit: edit)
                 if let errorMessage {
                     Divider()
                     ImportErrorBannerView(message: errorMessage)

@@ -7,6 +7,9 @@ struct TransactionTableView: View {
     let isLoading: Bool
     let filterError: String?
     let edit: (String?) -> Void
+    let delete: (String?) -> Void
+    let restore: (String?) -> Void
+    let isMutating: Bool
 
     var body: some View {
         Group {
@@ -74,9 +77,19 @@ struct TransactionTableView: View {
                 .contextMenu(forSelectionType: String.self) { ids in
                     if let id = ids.first {
                         Button("Edit transaction…") { edit(id) }
+                            .disabled(isMutating)
+                        if let transaction = transactions.first(where: { $0.id == id }) {
+                            if transaction.isExcluded {
+                                Button("Restore transaction", systemImage: "arrow.uturn.backward") { restore(id) }
+                                    .disabled(isMutating)
+                            } else {
+                                Button("Delete transaction", systemImage: "trash", role: .destructive) { delete(id) }
+                                    .disabled(isMutating)
+                            }
+                        }
                     }
                 } primaryAction: { ids in
-                    edit(ids.first)
+                    if !isMutating { edit(ids.first) }
                 }
             }
         }

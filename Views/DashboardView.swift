@@ -2,7 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var controller: DashboardController
-    @State private var section: DashboardReportSection = .cashFlow
+    @State private var section: DashboardReportSection = .monthly
     @State private var showsDateFilter = false
 
     var body: some View {
@@ -11,7 +11,7 @@ struct DashboardView: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    if !controller.isLoading && controller.errorMessage == nil {
+                    if section != .monthly && !controller.isLoading && controller.errorMessage == nil {
                         DashboardSummaryView(snapshot: controller.snapshot)
                         Divider()
                     }
@@ -34,6 +34,7 @@ struct DashboardView: View {
             ToolbarItem(placement: .primaryAction) {
                 DashboardYearPickerView(
                     year: controller.selectedYear,
+                    currentYear: controller.currentYear,
                     availableYears: controller.availableYears,
                     selectYear: controller.selectYear,
                     showPreviousYear: controller.showPreviousYear,
@@ -55,6 +56,7 @@ struct DashboardView: View {
                     .help("Refresh reports")
             }
         }
-        .task { controller.load() }
+        .task { controller.showPreviousMonth() }
+        .onChange(of: section) { if section == .monthly { controller.showPreviousMonth() } }
     }
 }

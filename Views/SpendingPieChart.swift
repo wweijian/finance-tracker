@@ -1,26 +1,24 @@
-import Charts
 import SwiftUI
 
 struct SpendingPieChart: View {
     let categoryTotals: [CategoryTotal]
+    private let colors: [Color] = [.teal, .indigo, .orange, .purple, .blue, .mint, .pink, .brown]
     private var spending: [CategoryTotal] { categoryTotals.filter { $0.amountCents > 0 } }
+    private var totalCents: Int { spending.reduce(0) { $0 + $1.amountCents } }
+    private var categoryColors: [String: Color] {
+        Dictionary(uniqueKeysWithValues: spending.enumerated().map { ($0.element.category, colors[$0.offset % colors.count]) })
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ReportChartHeaderView(title: "Spending distribution")
+        VStack(alignment: .leading, spacing: 16) {
+            ReportChartHeaderView(title: "Spending distribution", subtitle: "Share of total expenses · hover over a category · investments excluded")
             if spending.isEmpty {
-                ChartEmptyView(message: "No expenses in this period. Income still appears in the monthly charts.")
+                ChartEmptyView(message: "No expenses in this period.")
             } else {
-                Chart(spending) { total in
-                    SectorMark(angle: .value("Spending in SGD", total.amount), innerRadius: .ratio(0.72))
-                        .foregroundStyle(by: .value("Category", total.category))
-                        .accessibilityLabel(total.category)
-                        .accessibilityValue(CurrencyFormatter().string(for: total.amountCents))
+                HStack(alignment: .center, spacing: 32) {
+                    SpendingDistributionChart(categories: spending, totalCents: totalCents, colors: categoryColors)
+                    SpendingDistributionLegendView(categories: spending, totalCents: totalCents, colors: categoryColors)
                 }
-                .chartLegend(position: .bottom)
-                .chartForegroundStyleScale(range: [.blue, .teal, .indigo, .orange, .purple, .mint])
-                .frame(height: 280)
-                .accessibilityLabel("Pie chart of selected period spending by category in Singapore dollars")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

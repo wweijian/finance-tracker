@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct LedgerlyApp: App {
+    @NSApplicationDelegateAdaptor(LedgerlyAppDelegate.self) private var appDelegate
     @StateObject private var dashboardController: DashboardController
     @StateObject private var transactionsController: TransactionsController
     @StateObject private var localFilesController: LocalFilesController
