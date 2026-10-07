@@ -32,8 +32,6 @@ struct TransactionsView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 TransactionsToolbarView(
-                    addTransaction: controller.presentNewTransaction,
-                    importTransactions: controller.presentBulkImport,
                     exportTransactions: { localFilesController.chooseExport(controller.filteredTransactions) },
                     canExport: !controller.isLoading && !localFilesController.isWorking && !controller.filteredTransactions.isEmpty,
                     editTransaction: { controller.edit(id: selection) },
@@ -46,39 +44,6 @@ struct TransactionsView: View {
         }
         .onChange(of: controller.filteredTransactions.map(\.id)) {
             if !controller.filteredTransactions.contains(where: { $0.id == selection }) { selection = nil }
-        }
-        .sheet(item: $controller.form) { form in
-            TransactionEditorView(
-                form: form,
-                categories: controller.categories,
-                errorMessage: controller.errorMessage,
-                isMutating: controller.isMutating,
-                save: controller.save,
-                delete: { controller.exclude(id: form.transactionID) },
-                restore: { controller.include(id: form.transactionID) }
-            )
-        }
-        .sheet(isPresented: $controller.isShowingBulkImport) {
-            BulkImportView(
-                preview: controller.importPreview,
-                summary: controller.bulkImportSummary,
-                errorMessage: controller.bulkImportError,
-                activity: controller.importActivity,
-                previewCSV: controller.previewCSV,
-                removedRowCount: controller.removedImportRowCount,
-                removeRows: controller.requestImportRowRemoval,
-                undoRowRemovals: controller.undoImportRowRemovals,
-                commitAll: controller.commitBulkImport,
-                undo: controller.undoBulkImport,
-                cancel: controller.cancelBulkImport,
-                editingCandidate: $controller.importEditorCandidate,
-                categories: controller.categories,
-                editorError: controller.importEditorError,
-                editCandidate: controller.editImportCandidate,
-                saveCandidate: controller.saveImportCandidate,
-                removalIDs: $controller.importRowRemovalIDs,
-                confirmRemoval: controller.confirmImportRowRemoval
-            )
         }
     }
 }

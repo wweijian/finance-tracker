@@ -37,6 +37,8 @@ struct LedgerlyApp: App {
         .windowToolbarStyle(.unifiedCompact)
         .defaultSize(width: 1_240, height: 820)
         .commands {
+            TransactionEntryCommands(transactionsController: transactionsController, localFilesController: localFilesController)
+            AppScreenCommands(transactionsController: transactionsController, localFilesController: localFilesController)
             LocalFileCommands(controller: localFilesController, transactionsController: transactionsController)
         }
     }

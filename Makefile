@@ -1,7 +1,10 @@
 DB := $(HOME)/Library/Application Support/Ledgerly/finance.sqlite
 
-dev:
+new:
 	rm -f "$(DB)"
+	swift run
+
+dev:
 	swift run
 
 clean:
