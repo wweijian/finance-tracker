@@ -26,7 +26,7 @@ struct ImportFooterView: View {
                 .disabled(activity != nil)
             Button(readyCount > 0 ? "Import \(readyCount) transactions" : "Import", action: requestImport)
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut("i", modifiers: [.command])
                 .disabled(readyCount == 0 || activity != nil)
         }
         .padding(.horizontal, 20)

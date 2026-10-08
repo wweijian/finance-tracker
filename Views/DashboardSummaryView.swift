@@ -4,15 +4,11 @@ struct DashboardSummaryView: View {
     let snapshot: DashboardSnapshot
 
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), alignment: .leading)], alignment: .leading, spacing: 16) {
             DashboardMetricView(title: "Income", cents: snapshot.incomeCents, tint: .blue, change: snapshot.yearOverYear.income)
-            Divider()
             DashboardMetricView(title: "Expenses", cents: snapshot.expenseCents, tint: .orange, change: snapshot.yearOverYear.expenses)
-            Divider()
             DashboardMetricView(title: "Investments", cents: snapshot.investmentCents, tint: .purple)
-            Divider()
             DashboardMetricView(title: "Net balance", cents: snapshot.netCents, tint: .indigo, change: snapshot.yearOverYear.net)
-            Divider()
             DashboardMetricView(title: "Transactions", value: String(snapshot.transactionCount), tint: .secondary)
         }
         .fixedSize(horizontal: false, vertical: true)

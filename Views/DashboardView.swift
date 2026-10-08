@@ -2,61 +2,71 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var controller: DashboardController
-    @State private var section: DashboardReportSection = .monthly
-    @State private var showsDateFilter = false
+    let transactionsController: TransactionsController
+    @Binding var screen: AppScreen
 
     var body: some View {
-        VStack(spacing: 0) {
-            DashboardReportSelectorView(selection: $section, periodLabel: controller.periodLabel)
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    if section != .monthly && !controller.isLoading && controller.errorMessage == nil {
-                        DashboardSummaryView(snapshot: controller.snapshot)
-                        Divider()
+        VStack(spacing: 12) {
+            DashboardPeriodControlsView(scope: controller.scope, periodLabel: controller.periodLabel,
+                                        canGoBack: controller.canShowPreviousPeriod,
+                                        canGoForward: controller.canShowNextPeriod,
+                                        goBack: controller.navigatePreviousPeriod,
+                                        goForward: controller.navigateNextPeriod,
+                                        selectScope: controller.selectScope)
+                .padding(.horizontal)
+                .padding(.top)
+            reportPages
+        }
+        .task {
+            controller.load()
+            transactionsController.load()
+        }
+        .onChange(of: screen) {
+            if screen == .transactions && controller.selectedPage != .transactions {
+                controller.selectedPage = .transactions
+            } else if screen == .dashboard && controller.selectedPage == .transactions {
+                controller.selectedPage = .spending
+            }
+        }
+        .onChange(of: controller.selectedPage) {
+            let destination: AppScreen = controller.selectedPage == .transactions ? .transactions : .dashboard
+            if screen != destination { screen = destination }
+        }
+    }
+
+    private var reportPages: some View {
+        Group {
+            if controller.isLoading {
+                ProgressView("Loading reports…")
+            } else if let error = controller.errorMessage {
+                DashboardErrorView(message: error, retry: controller.load)
+            } else {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(DashboardPage.allCases) { reportPage in
+                            DashboardReportPageView(page: reportPage, snapshot: controller.snapshot,
+                                                    intervals: controller.intervals, peakMonths: controller.peakMonths,
+                                                    scope: controller.scope, categoryComparisons: controller.categoryComparisons,
+                                                    dashboardController: controller,
+                                                    transactionsController: transactionsController)
+                                .containerRelativeFrame(.vertical)
+                                .id(reportPage)
+                        }
                     }
-                    DashboardContentView(
-                        snapshot: controller.snapshot,
-                        section: section,
-                        isLoading: controller.isLoading,
-                        errorMessage: controller.errorMessage,
-                        comparisonReport: controller.comparisonReport,
-                        comparisonMonth: $controller.comparisonMonth,
-                        retry: controller.load
-                    )
+                    .scrollTargetLayout()
                 }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(Color(nsColor: .textBackgroundColor))
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                DashboardYearPickerView(
-                    year: controller.selectedYear,
-                    currentYear: controller.currentYear,
-                    availableYears: controller.availableYears,
-                    selectYear: controller.selectYear,
-                    showPreviousYear: controller.showPreviousYear,
-                    showNextYear: controller.showNextYear
-                )
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("Date range", systemImage: controller.filtersDateRange ? "calendar.badge.clock" : "calendar") {
-                    showsDateFilter.toggle()
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $controller.selectedPage, anchor: .top)
+                .overlay(alignment: .trailing) {
+                    DashboardPageIndicatorView(selection: controller.selectedPage) { page in
+                        withAnimation { controller.selectedPage = page }
+                    }
+                    .padding(.trailing, 12)
                 }
-                .help("Filter the reporting period")
-                .popover(isPresented: $showsDateFilter) {
-                    DashboardFilterView(controller: controller)
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("Refresh reports", systemImage: "arrow.clockwise", action: controller.load)
-                    .disabled(controller.isLoading)
-                    .help("Refresh reports")
+                .accessibilityLabel("Reports and transactions")
             }
         }
-        .task { controller.showPreviousMonth() }
-        .onChange(of: section) { if section == .monthly { controller.showPreviousMonth() } }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

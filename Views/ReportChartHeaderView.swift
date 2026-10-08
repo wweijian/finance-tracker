@@ -7,7 +7,7 @@ struct ReportChartHeaderView: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(title).font(.headline)
                 if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
             }
             Spacer()

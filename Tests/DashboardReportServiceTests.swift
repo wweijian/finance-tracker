@@ -3,6 +3,45 @@ import XCTest
 @testable import LedgerlyApp
 
 final class DashboardReportServiceTests: XCTestCase {
+    func testDailyReportsIncludeLeapDayAndIgnoreExcludedRowsAndInvestmentsInCategories() async throws {
+        let store = try SQLiteTestStore()
+        for transaction in [
+            TransactionFixture.make(id: "food", date: "2024-02-29", cents: 150, category: "Food"),
+            TransactionFixture.make(id: "salary", date: "2024-02-29", type: .income, cents: 1000, category: "Income"),
+            TransactionFixture.make(id: "invest", date: "2024-02-29", cents: 200, category: "Investment"),
+            TransactionFixture.make(id: "excluded", date: "2024-02-29", cents: 999, deletedAt: "2024-03-01T00:00:00Z"),
+            TransactionFixture.make(id: "outside", date: "2024-03-01", cents: 999)
+        ] { try store.repository.save(transaction) }
+        let report = try await DashboardReportService(repository: store.repository).dashboard(
+            for: DashboardPeriod(year: 2024, startDate: "2024-02-01", endDate: "2024-02-29")
+        )
+        XCTAssertEqual(report.days.count, 29)
+        XCTAssertEqual(report.days.first?.totals, .empty)
+        let day = try XCTUnwrap(report.days.last)
+        XCTAssertEqual(day.startDate, "2024-02-29")
+        XCTAssertEqual(day.totals.netCents, 650)
+        XCTAssertEqual(day.categories.map(\.category), ["Food"])
+        XCTAssertEqual(day.transactions.count, 3)
+        XCTAssertEqual(report.transactions.count, 3)
+        XCTAssertEqual(report.days.reduce(0) { $0 + $1.totals.expenseCents }, report.expenseCents)
+    }
+
+    func testCategoryHitSelectionAndPeakMonthUseExactCentsAndStableTies() {
+        let categories = [CategoryTotal(category: "Transport", amountCents: 200, previousYearCents: nil),
+                          CategoryTotal(category: "Food", amountCents: 100, previousYearCents: nil)]
+        let january = ReportInterval(startDate: "2026-01-01", label: "Jan", totals: .empty, categories: categories, transactions: [])
+        let february = ReportInterval(startDate: "2026-02-01", label: "Feb", totals: .empty,
+                                      categories: [CategoryTotal(category: "Food", amountCents: 500, previousYearCents: nil)], transactions: [])
+        let march = ReportInterval(startDate: "2026-03-01", label: "Mar", totals: .empty, categories: february.categories, transactions: [])
+        XCTAssertNil(january.category(atSpendingCents: -1))
+        XCTAssertEqual(january.category(atSpendingCents: 0), "Food")
+        XCTAssertEqual(january.category(atSpendingCents: 99), "Food")
+        XCTAssertEqual(january.category(atSpendingCents: 100), "Transport")
+        XCTAssertNil(january.category(atSpendingCents: 300))
+        XCTAssertEqual(ReportInterval.peak(for: "Food", in: [march, january, february])?.id, february.id)
+        XCTAssertNil(ReportInterval.peak(for: "Missing", in: [january, february]))
+    }
+
     func testKnownMonthlyAnnualAndCategoryTotalsAndComparisons() async throws {
         let store = try SQLiteTestStore()
         let fixtures: [FinanceTransaction] = [

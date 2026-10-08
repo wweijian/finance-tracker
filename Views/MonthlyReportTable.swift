@@ -8,7 +8,7 @@ struct MonthlyReportTable: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Monthly ledger").font(.system(size: 13, weight: .semibold))
+                Text("Monthly ledger").font(.headline)
                 Spacer()
                 Text("Select a month to inspect its categories")
                     .font(.caption).foregroundStyle(.secondary)

@@ -16,9 +16,9 @@ final class TextInputInteractionTests: XCTestCase {
         defer { window.close() }
         try await settle(window)
         let content = try XCTUnwrap(window.contentView)
-        let date = try XCTUnwrap(descendants(NSTextField.self, in: content).first { $0.placeholderString == "YYYY-MM-DD" })
-        XCTAssertEqual(date.stringValue, "2026-02-30")
-        try await type("2026-02-28", into: date, window: window)
+        let date = try XCTUnwrap(descendants(NSDatePicker.self, in: content).first)
+        XCTAssertEqual(candidate.transactionDate, "2026-02-30", "Showing a picker must preserve an invalid imported date until the user corrects it.")
+        try await choose("2026-02-28", using: date, window: window)
         XCTAssertEqual(candidate.transactionDate, "2026-02-28")
         let remarks = try XCTUnwrap(descendants(NSTextView.self, in: content).first { !$0.isFieldEditor })
         try click(remarks, in: window)
@@ -27,7 +27,7 @@ final class TextInputInteractionTests: XCTestCase {
         XCTAssertEqual(candidate.remarks, "Receipt saved\nReimbursable")
     }
 
-    func testRemarksInFullTransactionEditorReceiveClicksAndKeyboardInput() async throws {
+    func testNativeRemarksInFullTransactionEditorAcceptKeyboardInput() async throws {
         for notes in ["", "Original remarks"] {
             try await typeRemarksInTransactionEditor(initialNotes: notes)
         }
@@ -43,8 +43,8 @@ final class TextInputInteractionTests: XCTestCase {
         try await settle(window)
         let content = try XCTUnwrap(window.contentView)
         let remarks = try XCTUnwrap(descendants(NSTextView.self, in: content).first { !$0.isFieldEditor && $0.string == initialNotes })
-        try click(remarks, in: window)
-        XCTAssertTrue(window.firstResponder === remarks)
+        XCTAssertGreaterThan(remarks.visibleRect.height, 40)
+        XCTAssertTrue(window.makeFirstResponder(remarks))
         let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                                                  windowNumber: window.windowNumber, context: nil, characters: "x",
                                                  charactersIgnoringModifiers: "x", isARepeat: false, keyCode: 7))
@@ -69,7 +69,7 @@ final class TextInputInteractionTests: XCTestCase {
         clickedView.mouseDown(with: mouseDown)
     }
 
-    func testTypingDateRangeKeepsFocusWhileTableFiltersChange() async throws {
+    func testNativeDateRangePickerUpdatesFiltersWithoutReplacingTheControl() async throws {
         let store = try SQLiteTestStore()
         try store.repository.save(TransactionFixture.make(id: "before", date: "2026-05-08"))
         try store.repository.save(TransactionFixture.make(id: "after", date: "2026-05-15"))
@@ -80,18 +80,14 @@ final class TextInputInteractionTests: XCTestCase {
         let window = host(TransactionsView(controller: controller, localFilesController: localFiles), width: 1100, height: 680)
         defer { window.close() }
         try await settle(window)
-        let fields = descendants(NSTextField.self, in: try XCTUnwrap(window.contentView))
-        let field = try XCTUnwrap(fields.first { $0.placeholderString == "YYYY-MM-DD" })
-        XCTAssertTrue(window.makeFirstResponder(field))
-        let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
-        for character in "2026-05-10" {
-            editor.insertText(String(character), replacementRange: editor.selectedRange())
-            try await settle(window)
-            XCTAssertTrue(window.firstResponder === editor)
-        }
+        let content = try XCTUnwrap(window.contentView)
+        let picker = try XCTUnwrap(descendants(NSDatePicker.self, in: content).first)
+        XCTAssertTrue(controller.startDateText.isEmpty, "An open date bound should stay unset until a date is selected.")
+        try await choose("2026-05-10", using: picker, window: window)
         XCTAssertEqual(controller.startDateText, "2026-05-10")
         XCTAssertNil(controller.filterErrorMessage)
         XCTAssertEqual(controller.filteredTransactions.map(\.id), ["after"])
+        XCTAssertTrue(descendants(NSDatePicker.self, in: content).first === picker)
     }
 
     func testRemarksEditorAcceptsMultilineTypingAndUpdatesBinding() async throws {
@@ -109,7 +105,7 @@ final class TextInputInteractionTests: XCTestCase {
         XCTAssertEqual(text, "Original remarks\nReceipt saved")
     }
 
-    func testReportingDateRangeFieldsAcceptTypingBeforeEnablingRange() async throws {
+    func testNativeReportingDatePickersSetInclusiveRangeBeforeApplyingIt() async throws {
         let store = try SQLiteTestStore()
         for date in ["2026-05-08", "2026-05-15", "2026-05-25"] {
             try store.repository.save(TransactionFixture.make(date: date, cents: 100))
@@ -120,10 +116,10 @@ final class TextInputInteractionTests: XCTestCase {
         defer { window.close() }
         try await settle(window)
         let content = try XCTUnwrap(window.contentView)
-        let fields = descendants(NSTextField.self, in: content).filter { $0.placeholderString == "YYYY-MM-DD" }
-        XCTAssertEqual(fields.count, 2)
-        try await type("2026-05-10", into: fields[0], window: window)
-        try await type("2026-05-20", into: fields[1], window: window)
+        let pickers = descendants(NSDatePicker.self, in: content)
+        XCTAssertEqual(pickers.count, 2)
+        try await choose("2026-05-10", using: pickers[0], window: window)
+        try await choose("2026-05-20", using: pickers[1], window: window)
         XCTAssertEqual(controller.startDateText, "2026-05-10")
         XCTAssertEqual(controller.endDateText, "2026-05-20")
         XCTAssertFalse(controller.filtersDateRange)
@@ -135,31 +131,20 @@ final class TextInputInteractionTests: XCTestCase {
         XCTAssertEqual(controller.snapshot.expenseCents, 100)
     }
 
-    func testDateEntryValidatesBeforeUpdatingDateAndPreservesInvalidDraft() async throws {
-        let originalDate = TransactionDateFormatter().date(from: "2026-05-08")!
-        var date = originalDate
-        var isValid = true
-        let window = host(DateSelectionView(title: "Date", date: Binding(get: { date }, set: { date = $0 }),
-                                             validationChanged: { isValid = $0 }), width: 500, height: 120)
+    func testNativeDateSelectionUpdatesBoundDateWithoutChangingItsDay() async throws {
+        var date = TransactionDateFormatter().date(from: "2026-05-08")!
+        let window = host(DateSelectionView(title: "Date", date: Binding(get: { date }, set: { date = $0 })), width: 500, height: 120)
         defer { window.close() }
         try await settle(window)
-        let content = try XCTUnwrap(window.contentView)
-        let field = try XCTUnwrap(descendants(NSTextField.self, in: content).first { $0.placeholderString == "YYYY-MM-DD" })
-        try await type("2026-02-30", into: field, window: window)
-        XCTAssertFalse(isValid)
-        XCTAssertEqual(date, originalDate)
-        XCTAssertEqual(field.stringValue, "2026-02-30")
-        try await type("2026-05-10", into: field, window: window)
-        XCTAssertTrue(isValid)
-        XCTAssertEqual(TransactionDateFormatter().string(from: date), "2026-05-10")
+        let picker = try XCTUnwrap(descendants(NSDatePicker.self, in: try XCTUnwrap(window.contentView)).first)
+        try await choose("2024-02-29", using: picker, window: window)
+        XCTAssertEqual(TransactionDateFormatter().string(from: date), "2024-02-29")
     }
 
-    private func type(_ value: String, into field: NSTextField, window: NSWindow) async throws {
-        XCTAssertTrue(field.isEnabled)
-        XCTAssertTrue(window.makeFirstResponder(field))
-        let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
-        editor.setSelectedRange(NSRange(location: 0, length: editor.string.utf16.count))
-        editor.insertText(value, replacementRange: editor.selectedRange())
+    private func choose(_ value: String, using picker: NSDatePicker, window: NSWindow) async throws {
+        XCTAssertTrue(picker.isEnabled)
+        picker.dateValue = try XCTUnwrap(TransactionDateFormatter().date(from: value))
+        XCTAssertTrue(picker.sendAction(picker.action, to: picker.target))
         try await settle(window)
     }
 

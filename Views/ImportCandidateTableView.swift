@@ -9,12 +9,16 @@ struct ImportCandidateTableView: View {
     @State private var sortOrder = [KeyPathComparator(\ImportCandidate.sourceRow)]
 
     var body: some View {
-        ImportTableScrollView(
-            activateSelection: { editSelection(selection) },
-            toggleChecks: { toggleChecks(selection) },
-            deleteSelection: { if !checkedRowIDs.isEmpty { remove(checkedRowIDs) } }
-        ) {
+        VStack(spacing: 8) {
             table
+            ImportTableActionsView(
+                highlightedCount: selection.count,
+                checkedCount: checkedRowIDs.count,
+                allHighlightedChecked: selection.isSubset(of: checkedRowIDs),
+                toggleChecks: { toggleChecks(selection) },
+                edit: { editSelection(selection) },
+                remove: { remove(checkedRowIDs) }
+            )
         }
     }
 
@@ -81,7 +85,7 @@ struct ImportCandidateTableView: View {
         } primaryAction: { ids in
             editSelection(ids)
         }
-        .accessibilityLabel("CSV import preview. Checkboxes mark rows for deletion. Click or use arrow keys to highlight rows without changing their checkboxes. Shift-click highlights a range; Command-click highlights separate rows. Space checks or unchecks highlighted rows. Double-click or Return edits one highlighted transaction. Click column headings to sort.")
+        .accessibilityLabel("CSV import preview. Checkboxes mark rows for deletion. Click or use arrow keys to highlight rows without changing their checkboxes. Shift-click highlights a range; Command-click highlights separate rows. Use the buttons below to check, edit, or delete rows. Double-click a row to edit. Click column headings to sort.")
     }
 
     private func toggleChecks(_ ids: Set<String>) {

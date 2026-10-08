@@ -21,12 +21,9 @@ struct DashboardMetricView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Circle().fill(tint).frame(width: 5, height: 5).accessibilityHidden(true)
-                Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-            }
+            Text(title).font(.subheadline).foregroundStyle(tint)
             Text(value)
-                .font(.system(size: 26, weight: .regular))
+                .font(.title)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)

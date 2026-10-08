@@ -42,7 +42,7 @@ final class ImportTableScrollViewTests: XCTestCase {
         XCTAssertTrue(try store.repository.transactions(includeDeleted: false).isEmpty)
     }
 
-    func testVisibleHorizontalScrollbarReachesLastColumnsAndSurvivesResize() async throws {
+    func testNativeTableScrollingReachesLastColumnsAndSurvivesResize() async throws {
         _ = NSApplication.shared
         let candidate = ImportCandidate(
             id: "preview", sourceRow: 2, transactionDate: "2026-05-08", transactionType: .expense,
@@ -60,10 +60,7 @@ final class ImportTableScrollViewTests: XCTestCase {
         let scrollView = try XCTUnwrap(findHorizontalScrollView(in: hostingView))
         let document = try XCTUnwrap(scrollView.documentView)
         let scroller = try XCTUnwrap(scrollView.horizontalScroller)
-        XCTAssertFalse(scroller.isHidden)
-        XCTAssertGreaterThan(scroller.frame.height, 0)
         XCTAssertLessThan(scroller.knobProportion, 1)
-        XCTAssertEqual(document.frame.height, scrollView.contentView.bounds.height, accuracy: 1)
 
         scrollView.contentView.scroll(to: NSPoint(x: document.frame.width - scrollView.contentView.bounds.width, y: 0))
         scrollView.reflectScrolledClipView(scrollView.contentView)
@@ -73,16 +70,14 @@ final class ImportTableScrollViewTests: XCTestCase {
 
         window.setContentSize(NSSize(width: 1_000, height: 500))
         try await settleLayout(hostingView)
-        XCTAssertFalse(scroller.isHidden)
-        XCTAssertEqual(document.frame.height, scrollView.contentView.bounds.height, accuracy: 1)
         scrollView.contentView.scroll(to: NSPoint(x: document.frame.width - scrollView.contentView.bounds.width, y: 0))
         scrollView.reflectScrolledClipView(scrollView.contentView)
         XCTAssertEqual(scrollView.contentView.bounds.maxX, document.frame.maxX, accuracy: 1)
     }
 
     private func findHorizontalScrollView(in view: NSView) -> NSScrollView? {
-        if let scrollView = view as? NSScrollView, scrollView.scrollerStyle == .legacy,
-           scrollView.hasHorizontalScroller, !scrollView.hasVerticalScroller { return scrollView }
+        if let scrollView = view as? NSScrollView,
+           scrollView.documentView is NSTableView, scrollView.hasHorizontalScroller { return scrollView }
         return view.subviews.compactMap { findHorizontalScrollView(in: $0) }.first
     }
 

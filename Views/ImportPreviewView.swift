@@ -50,13 +50,10 @@ struct ImportPreviewView: View {
             ImportRowDetailView(
                 candidate: selectedCandidate,
                 highlightedCount: selection.count,
-                checkedCount: checkedRowIDs.count,
                 allRowsChecked: allRowsChecked,
                 hasVisibleRows: !visibleCandidates.isEmpty,
                 isWorking: isWorking,
-                toggleSelectAll: toggleSelectAll,
-                edit: { if let selectedCandidate { edit(selectedCandidate.id) } },
-                remove: { remove(checkedRowIDs) }
+                toggleSelectAll: toggleSelectAll
             )
         }
         .disabled(isWorking)

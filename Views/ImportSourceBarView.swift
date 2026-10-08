@@ -9,7 +9,7 @@ struct ImportSourceBarView: View {
     var body: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Import transactions").font(.system(size: 13, weight: .semibold))
+                Text("Import transactions").font(.headline)
                 Label(filename ?? "No file selected", systemImage: "doc.text")
                     .font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).help(filename ?? "Choose a cleaned bank CSV or a Ledgerly export")

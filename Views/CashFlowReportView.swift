@@ -15,7 +15,6 @@ struct CashFlowReportView: View {
                     ForEach(categories, id: \.self) { Text($0).tag(Optional($0)) }
                     Text("Investment").tag(Optional("Investment"))
                 }
-                .tint(.teal)
                 .frame(width: 220)
             }
             if let selectedCategory {

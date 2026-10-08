@@ -6,6 +6,18 @@ struct DashboardSnapshot: Sendable {
     var categoryTotals: [CategoryTotal]
     var availableYears: [Int]
     var spendingHistoryMonths: [MonthlyReport] = []
+    var days: [ReportInterval] = []
+    var transactions: [TransactionListItem] = []
+
+    func intervals(for scope: DashboardScope) -> [ReportInterval] {
+        if scope == .monthly { return days }
+        let grouped = Dictionary(grouping: transactions) { String($0.transactionDate.prefix(7)) }
+        return months.map { month in
+            ReportInterval(startDate: month.startDate, label: month.label, totals: month.totals,
+                           categories: month.spendingDistribution,
+                           transactions: grouped[String(month.startDate.prefix(7)), default: []])
+        }
+    }
 
     var incomeCents: Int { totals.incomeCents }
     var expenseCents: Int { totals.expenseCents }

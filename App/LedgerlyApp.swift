@@ -6,10 +6,12 @@ struct LedgerlyApp: App {
     @StateObject private var dashboardController: DashboardController
     @StateObject private var transactionsController: TransactionsController
     @StateObject private var localFilesController: LocalFilesController
+    @StateObject private var feedbackController: FeedbackController
 
     init() {
         do {
             let container = try AppContainer()
+            _feedbackController = StateObject(wrappedValue: FeedbackController(repository: container.feedbackRepository))
             _localFilesController = StateObject(wrappedValue: LocalFilesController(service: container.localFileService))
             _dashboardController = StateObject(
                 wrappedValue: DashboardController(reportService: container.dashboardReportService)
@@ -30,11 +32,10 @@ struct LedgerlyApp: App {
             AppShellView(
                 dashboardController: dashboardController,
                 transactionsController: transactionsController,
-                localFilesController: localFilesController
+                localFilesController: localFilesController,
+                feedbackController: feedbackController
             )
         }
-        .windowStyle(.hiddenTitleBar)
-        .windowToolbarStyle(.unifiedCompact)
         .defaultSize(width: 1_240, height: 820)
         .commands {
             TransactionEntryCommands(transactionsController: transactionsController, localFilesController: localFilesController)

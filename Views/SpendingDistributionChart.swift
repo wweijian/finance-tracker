@@ -5,18 +5,28 @@ struct SpendingDistributionChart: View {
     let categories: [CategoryTotal]
     let totalCents: Int
     let colors: [String: Color]
-    @State private var selectedAngle: Int?
+    var peakMonths: [ReportInterval] = []
+    var highestTransactions: [String: TransactionListItem] = [:]
+    @State private var selectedCategoryID: String?
 
     private var selectedCategory: CategoryTotal? {
-        guard let selectedAngle else { return nil }
-        var cumulative = 0
-        return categories.first { total in
-            cumulative += total.amountCents
-            return selectedAngle < cumulative
-        }
+        categories.first { $0.id == selectedCategoryID }
     }
 
     var body: some View {
+        VStack(spacing: 12) {
+            chart
+            if !highestTransactions.isEmpty {
+                ScrollView(.vertical) {
+                    HighestTransactionDetailView(transaction: selectedCategoryID.flatMap { highestTransactions[$0] })
+                }
+                .frame(height: 100)
+            }
+        }
+        .onHover { isHovered in if !isHovered { selectAngle(nil) } }
+    }
+
+    private var chart: some View {
         Chart(categories) { total in
             SectorMark(angle: .value("Spending in cents", total.amountCents), innerRadius: .ratio(0.68), angularInset: 1)
                 .foregroundStyle(by: .value("Category", total.category))
@@ -24,41 +34,43 @@ struct SpendingDistributionChart: View {
                 .accessibilityLabel(total.category)
                 .accessibilityValue("\(CurrencyFormatter().string(for: total.amountCents)), \(total.percentage(of: totalCents)) of spending")
         }
-        .chartLegend(.hidden)
+        .chartLegend(position: .top, alignment: .leading)
         .chartForegroundStyleScale(domain: categories.map(\.category), range: categories.map { colors[$0.category] ?? .teal })
-        .chartAngleSelection(value: $selectedAngle)
-        .chartOverlay { proxy in
+        .chartAngleSelection(value: Binding<Int?>(get: { selectedCategoryAngle }, set: selectAngle))
+        .chartBackground { proxy in
             GeometryReader { geometry in
-                Rectangle().fill(.clear).contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active(let point):
-                            guard let frame = proxy.plotFrame else { return }
-                            let plot = geometry[frame]
-                            selectCategory(at: point, in: plot)
-                        case .ended: selectedAngle = nil
-                        }
-                    }
+                if let frame = proxy.plotFrame {
+                    let plot = geometry[frame]
+                    SpendingDistributionSelectionView(category: selectedCategory, totalCents: totalCents,
+                                                       peak: selectedCategory.flatMap { ReportInterval.peak(for: $0.category, in: peakMonths) })
+                        .frame(width: min(plot.width, plot.height) * 0.6)
+                        .position(x: plot.midX, y: plot.midY)
+                }
             }
+            .allowsHitTesting(false)
         }
-        .chartBackground { _ in
-            SpendingDistributionSelectionView(category: selectedCategory, totalCents: totalCents)
-                .allowsHitTesting(false)
-        }
-        .frame(width: 430, height: 400)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityLabel("Spending distribution by category, with percentage shares")
+        .onChange(of: categories.map(\.amountCents)) { selectAngle(nil) }
     }
 
-    private func selectCategory(at point: CGPoint, in plot: CGRect) {
-        let dx = point.x - plot.midX
-        let dy = point.y - plot.midY
-        let radius = min(plot.width, plot.height) / 2
-        let distance = hypot(dx, dy)
-        guard distance <= radius && distance >= radius * 0.68 else {
-            selectedAngle = nil
-            return
+    private var selectedCategoryAngle: Int? {
+        var cumulative = 0
+        for category in categories {
+            if category.id == selectedCategoryID { return cumulative + category.amountCents / 2 }
+            cumulative += category.amountCents
         }
-        let angle = (atan2(dy, dx) + .pi / 2 + 2 * .pi).truncatingRemainder(dividingBy: 2 * .pi)
-        selectedAngle = Int(angle / (2 * .pi) * Double(totalCents))
+        return nil
+    }
+
+    private func selectAngle(_ angle: Int?) {
+        var cumulative = 0
+        let category = angle.flatMap { value in
+            categories.first {
+                cumulative += $0.amountCents
+                return value < cumulative
+            }
+        }
+        if selectedCategoryID != category?.id { selectedCategoryID = category?.id }
     }
 }

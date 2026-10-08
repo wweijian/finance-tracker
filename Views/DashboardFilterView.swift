@@ -15,7 +15,7 @@ struct DashboardFilterView: View {
             LabeledContent("Through") {
                 DateTextField(title: "Through date", text: $controller.endDateText)
             }
-            Text("Enter dates as YYYY-MM-DD within \(String(controller.selectedYear)), then apply the range.")
+            Text("Choose dates within \(String(controller.selectedYear)), then apply the range.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let error = controller.errorMessage {

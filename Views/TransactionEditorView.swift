@@ -3,7 +3,6 @@ import SwiftUI
 struct TransactionEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var form: TransactionForm
-    @State private var isDateValid = true
 
     let categories: [String]
     let save: (TransactionForm) -> Void
@@ -29,7 +28,7 @@ struct TransactionEditorView: View {
                 .font(.title3.weight(.semibold))
 
             Form {
-                DateSelectionView(title: "Date", date: $form.date, validationChanged: { isDateValid = $0 })
+                DateSelectionView(title: "Date", date: $form.date)
                 Picker("Type", selection: $form.transactionType) {
                     ForEach(TransactionType.allCases, id: \.self) { type in
                         Text(type.rawValue.capitalized).tag(type)
@@ -45,10 +44,12 @@ struct TransactionEditorView: View {
                         Text(category).tag(category)
                     }
                 }
-                RemarksEditorView(text: $form.notes)
             }
             .formStyle(.grouped)
             .disabled(isMutating)
+
+            RemarksEditorView(text: $form.notes)
+                .disabled(isMutating)
 
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red).textSelection(.enabled)
@@ -73,7 +74,7 @@ struct TransactionEditorView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(isMutating || !isDateValid)
+                .disabled(isMutating)
             }
         }
         .padding(24)

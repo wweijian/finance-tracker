@@ -36,8 +36,8 @@ final class ImportTableInteractionTests: XCTestCase {
         XCTAssertEqual(checked, ["row-2"])
     }
 
-    func testArrowKeysHighlightSpaceChecksAndReturnEditsWithoutTriggeringImport() async throws {
-        var selection: Set<String> = []
+    func testNativeActionsKeepHighlightAndChecksSeparate() async throws {
+        var selection: Set<String> = ["row-1"]
         var checked: Set<String> = ["row-3"]
         var editedIDs: [String] = []
         var imported = false
@@ -48,7 +48,7 @@ final class ImportTableInteractionTests: XCTestCase {
                 checkedRowIDs: Binding(get: { checked }, set: { checked = $0 }),
                 edit: { editedIDs.append($0) }, remove: { _ in }
             )
-            Button("Import") { imported = true }.keyboardShortcut(.defaultAction)
+            Button("Import") { imported = true }.keyboardShortcut("i", modifiers: [.command])
         })
         defer { window.close() }
         try await settle(window)
@@ -63,26 +63,26 @@ final class ImportTableInteractionTests: XCTestCase {
         try await settle(window)
         XCTAssertEqual(selection, ["row-1"])
         XCTAssertEqual(checked, ["row-3"])
-        try key(" ", code: 49, in: window)
+        try performTableAction("highlighted rows", in: window)
         try await settle(window)
         XCTAssertTrue(editedIDs.isEmpty)
         XCTAssertEqual(checked, ["row-1", "row-3"])
         XCTAssertEqual(selection, ["row-1"])
-        try key("\r", code: 36, in: window)
+        try performTableAction("Edit transaction", in: window)
         try await settle(window)
         XCTAssertEqual(editedIDs, ["row-1"])
         XCTAssertFalse(imported)
         try key("\u{F701}", code: 125, in: window, modifiers: .shift)
         try await settle(window)
         XCTAssertEqual(selection, ["row-1", "row-2"])
-        try key("\r", code: 36, in: window)
+        XCTAssertFalse(try tableMenu(in: window).items.contains { $0.title.hasPrefix("Edit transaction") })
         try await settle(window)
         XCTAssertEqual(editedIDs.count, 1)
         XCTAssertFalse(imported)
-        try key(" ", code: 49, in: window)
+        try performTableAction("highlighted rows", in: window)
         try await settle(window)
         XCTAssertEqual(checked, ["row-1", "row-2", "row-3"])
-        try key(" ", code: 49, in: window)
+        try performTableAction("highlighted rows", in: window)
         try await settle(window)
         XCTAssertEqual(checked, ["row-3"])
         XCTAssertEqual(selection, ["row-1", "row-2"])
@@ -104,7 +104,7 @@ final class ImportTableInteractionTests: XCTestCase {
         table.selectRowIndexes(IndexSet(integersIn: 1...2), byExtendingSelection: false)
         try await settle(window)
         XCTAssertTrue(window.makeFirstResponder(table))
-        try key("\u{7F}", code: 51, in: window)
+        try performTableAction("Delete checked", in: window)
         try await settle(window)
         XCTAssertEqual(removedIDs, ["row-0", "row-3"])
         XCTAssertEqual(selection, ["row-1", "row-2"])
@@ -124,7 +124,7 @@ final class ImportTableInteractionTests: XCTestCase {
         table.selectRowIndexes(IndexSet(integersIn: 1...2), byExtendingSelection: false)
         try await settle(window)
         XCTAssertTrue(window.makeFirstResponder(table))
-        try key("\u{7F}", code: 51, in: window)
+        XCTAssertFalse(try tableMenu(in: window).items.contains { $0.title.hasPrefix("Delete checked") })
         try await settle(window)
         XCTAssertFalse(removed)
         XCTAssertEqual(selection, ["row-1", "row-2"])
@@ -178,6 +178,22 @@ final class ImportTableInteractionTests: XCTestCase {
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: view)
         return window
+    }
+
+    private func performTableAction(_ title: String, in window: NSWindow) throws {
+        let menu = try tableMenu(in: window)
+        let index = try XCTUnwrap(menu.items.firstIndex { $0.title.contains(title) })
+        menu.performActionForItem(at: index)
+    }
+
+    private func tableMenu(in window: NSWindow) throws -> NSMenu {
+        let table = try XCTUnwrap(findTable(in: try XCTUnwrap(window.contentView)))
+        let row = table.selectedRow >= 0 ? table.selectedRow : 0
+        let rect = table.rect(ofRow: row)
+        let location = table.convert(NSPoint(x: 200, y: rect.midY), to: nil)
+        let event = try XCTUnwrap(NSEvent.mouseEvent(with: .rightMouseDown, location: location, modifierFlags: [], timestamp: 0,
+                                                   windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+        return try XCTUnwrap(table.menu(for: event))
     }
 
     private func findTable(in view: NSView) -> NSTableView? {

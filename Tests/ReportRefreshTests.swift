@@ -15,10 +15,11 @@ final class ReportRefreshTests: XCTestCase {
         let transactions = TransactionsController(service: TransactionService(repository: store.repository),
                                                  bulkImportService: BulkImportService(repository: store.repository))
         let files = LocalFilesController(service: LocalFileService(repository: store.repository))
+        let feedback = FeedbackController(repository: LocalFeedbackRepository(fileURL: store.directory.appendingPathComponent("feedback.txt")))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 680),
                               styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: AppShellView(dashboardController: dashboard, transactionsController: transactions, localFilesController: files))
+        window.contentView = NSHostingView(rootView: AppShellView(dashboardController: dashboard, transactionsController: transactions, localFilesController: files, feedbackController: feedback))
         defer { window.close() }
         window.contentView?.layoutSubtreeIfNeeded()
         try await waitForReports(dashboard, transactions: transactions, spending: 100)

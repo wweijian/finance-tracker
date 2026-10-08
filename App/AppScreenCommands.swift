@@ -7,7 +7,7 @@ struct AppScreenCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .sidebar) {
-            Button(screen == .transactions ? "Show Overview" : "Show Transactions Table") {
+            Button(screen == .transactions ? "Show Overview" : "Show Transactions") {
                 screen = screen == .transactions ? .dashboard : .transactions
             }
             .keyboardShortcut("t", modifiers: [.command, .shift])

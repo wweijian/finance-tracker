@@ -5,6 +5,7 @@ final class AppContainer {
     let transactionService: TransactionService
     let bulkImportService: BulkImportService
     let localFileService: LocalFileService
+    let feedbackRepository: LocalFeedbackRepository
 
     init() throws {
         let paths = try DatabasePaths()
@@ -16,5 +17,6 @@ final class AppContainer {
         transactionService = TransactionService(repository: repository)
         bulkImportService = BulkImportService(repository: repository)
         localFileService = LocalFileService(repository: repository)
+        feedbackRepository = LocalFeedbackRepository(fileURL: paths.feedbackURL)
     }
 }

@@ -19,20 +19,7 @@ struct MonthlySpendingChart: View {
                         .accessibilityLabel("\(month.periodLabel) spending")
                         .accessibilityValue(CurrencyFormatter().string(for: month.totals.expenseCents))
                 }
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle().fill(.clear).contentShape(Rectangle())
-                            .onContinuousHover { phase in
-                                switch phase {
-                                case .active(let point):
-                                    if let frame = proxy.plotFrame {
-                                        hoveredMonth = proxy.value(atX: point.x - geometry[frame].minX, as: String.self)
-                                    }
-                                case .ended: hoveredMonth = nil
-                                }
-                            }
-                    }
-                }
+                .chartXSelection(value: $hoveredMonth)
                 .frame(height: 280)
                 Text(hoveredReport.map { "\($0.periodLabel): \(CurrencyFormatter().string(for: $0.totals.expenseCents))" } ?? "Hover over a month to see its spending")
                     .font(.caption).foregroundStyle(.secondary)

@@ -4,53 +4,29 @@ struct AppShellView: View {
     @ObservedObject var dashboardController: DashboardController
     @ObservedObject var transactionsController: TransactionsController
     @ObservedObject var localFilesController: LocalFilesController
+    @ObservedObject var feedbackController: FeedbackController
     @State private var screen: AppScreen = .dashboard
-    @State private var showsAddMenu = false
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                content
-                    .disabled(localFilesController.isWorking || localFilesController.pendingRestore != nil)
-                LocalFileStatusView(statusMessage: localFilesController.statusMessage, errorMessage: localFilesController.errorMessage)
-            }
+        VStack(spacing: 0) {
+            DashboardView(controller: dashboardController, transactionsController: transactionsController, screen: $screen)
+                .disabled(localFilesController.isWorking || localFilesController.pendingRestore != nil)
+            LocalFileStatusView(statusMessage: localFilesController.statusMessage, errorMessage: localFilesController.errorMessage)
         }
-        .frame(minWidth: 1_100, minHeight: 680)
-        .overlay(alignment: .bottomTrailing) {
-            ZStack(alignment: .bottomTrailing) {
-                if showsAddMenu {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture { showsAddMenu = false }
-                }
-                VStack(alignment: .trailing, spacing: 12) {
-                    if showsAddMenu {
-                        AddTransactionsMenuView(
-                            addTransaction: {
-                                showsAddMenu = false
-                                transactionsController.presentNewTransaction()
-                            },
-                            importTransactions: {
-                                showsAddMenu = false
-                                transactionsController.presentBulkImport()
-                            }
-                        )
-                    }
-                    AddTransactionsFloatingButton(showsMenu: $showsAddMenu)
-                }
-                .disabled(localFilesController.isWorking || localFilesController.pendingRestore != nil || transactionsController.isImporting || transactionsController.isMutating || transactionsController.form != nil || transactionsController.isShowingBulkImport)
-                .padding(.trailing, 24)
-                .padding(.bottom, 48)
-            }
-        }
-        .onExitCommand { showsAddMenu = false }
-        .onChange(of: screen) { showsAddMenu = false }
-        .onChange(of: transactionsController.form?.id) { showsAddMenu = false }
-        .onChange(of: transactionsController.isShowingBulkImport) { showsAddMenu = false }
+        .frame(minWidth: 640, minHeight: 520)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                LocalFileActionsView(controller: localFilesController)
-                    .disabled(transactionsController.isImporting || transactionsController.isMutating || transactionsController.form != nil || transactionsController.isShowingBulkImport)
+                AddTransactionsMenuView(
+                    addTransaction: transactionsController.presentNewTransaction,
+                    importTransactions: transactionsController.presentBulkImport
+                )
+                .disabled(localFilesController.isWorking || localFilesController.pendingRestore != nil || transactionsController.isImporting || transactionsController.isMutating || transactionsController.form != nil || transactionsController.isShowingBulkImport)
+            }
+            ToolbarItem(placement: .automatic) {
+                FeedbackButton {
+                    Task { await feedbackController.present() }
+                }
+                .disabled(localFilesController.pendingRestore != nil || transactionsController.form != nil || transactionsController.isShowingBulkImport)
             }
         }
         .onChange(of: localFilesController.restoreRevision) {
@@ -60,7 +36,15 @@ struct AppShellView: View {
         .onChange(of: transactionsController.dataRevision) {
             dashboardController.load()
         }
+        .onChange(of: dashboardController.reportingPeriod) {
+            if let period = dashboardController.reportingPeriod {
+                transactionsController.selectReportingPeriod(period)
+            }
+        }
         .focusedSceneValue(\.appScreen, $screen)
+        .sheet(isPresented: $feedbackController.isPresented) {
+            FeedbackView(controller: feedbackController)
+        }
         .sheet(item: $transactionsController.form) { form in
             TransactionEditorView(
                 form: form,
@@ -105,13 +89,4 @@ struct AppShellView: View {
         }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        switch screen {
-        case .dashboard:
-            DashboardView(controller: dashboardController)
-        case .transactions:
-            TransactionsView(controller: transactionsController, localFilesController: localFilesController)
-        }
-    }
 }

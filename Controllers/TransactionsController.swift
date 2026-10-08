@@ -78,6 +78,12 @@ final class TransactionsController: ObservableObject {
         if previouslyIncludedExcluded != includesExcluded { load() }
     }
 
+    func selectReportingPeriod(_ period: DashboardPeriod) {
+        dateFilterMode = .range
+        startDateText = period.startDate
+        endDateText = period.endDate
+    }
+
     func clearFilters() {
         searchText = ""
         selectedType = nil

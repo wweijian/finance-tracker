@@ -2,6 +2,7 @@ import Foundation
 
 struct DatabasePaths {
     let databaseURL: URL
+    let feedbackURL: URL
     let schemaURL: URL
 
     init(fileManager: FileManager = .default) throws {
@@ -13,6 +14,7 @@ struct DatabasePaths {
         ).appendingPathComponent("Ledgerly", isDirectory: true)
         try fileManager.createDirectory(at: supportURL, withIntermediateDirectories: true)
         databaseURL = supportURL.appendingPathComponent("finance.sqlite")
+        feedbackURL = supportURL.appendingPathComponent("feedback.txt")
         guard let resourceURL = Bundle.module.url(
             forResource: "schema",
             withExtension: "sql",

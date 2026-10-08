@@ -15,27 +15,46 @@ actor DashboardReportService: DashboardReporting {
 
     func dashboard(for period: DashboardPeriod) throws -> DashboardSnapshot {
         let transactions = try repository.transactions(includeDeleted: false)
-        let current = rows(transactions, from: period.startDate, through: period.endDate)
+        let index = TransactionReportIndex(transactions: transactions)
+        let current = index.rows(from: period.startDate, through: period.endDate)
         let priorDates = comparisonDates(from: period.startDate, through: period.endDate, component: .year)
-        let priorYear = rows(transactions, from: priorDates.start, through: priorDates.end)
+        let priorYear = index.rows(from: priorDates.start, through: priorDates.end)
         let totals = totals(current)
         let years = Set(transactions.compactMap { Int($0.transactionDate.prefix(4)) })
         let previousYearMonths = period.year > 2
-            ? monthlyReports(transactions, period: try DashboardPeriod(year: period.year - 1)) : []
-        let months = monthlyReports(transactions, period: period)
+            ? monthlyReports(index, period: try DashboardPeriod(year: period.year - 1)) : []
+        let months = monthlyReports(index, period: period)
         let fullYear = try DashboardPeriod(year: period.year)
-        let historyMonths = period == fullYear ? months : monthlyReports(transactions, period: fullYear)
+        let historyMonths = period == fullYear ? months : monthlyReports(index, period: fullYear)
         return DashboardSnapshot(
             totals: totals,
             yearOverYear: ReportComparison(current: totals, previous: self.totals(priorYear)),
             months: months,
             categoryTotals: categoryTotals(current, previous: priorYear),
             availableYears: years.union([period.year, calendar.component(.year, from: Date())]).sorted(by: >),
-            spendingHistoryMonths: previousYearMonths + historyMonths
+            spendingHistoryMonths: previousYearMonths + historyMonths,
+            days: dailyReports(current, period: period),
+            transactions: current.sorted { $0.transactionDate == $1.transactionDate ? $0.id < $1.id : $0.transactionDate < $1.transactionDate }
         )
     }
 
-    private func monthlyReports(_ transactions: [TransactionListItem], period: DashboardPeriod) -> [MonthlyReport] {
+    private func dailyReports(_ transactions: [TransactionListItem], period: DashboardPeriod) -> [ReportInterval] {
+        let grouped = Dictionary(grouping: transactions, by: \.transactionDate)
+        var date = dateFormatter.date(from: period.startDate)!
+        let end = dateFormatter.date(from: period.endDate)!
+        var reports: [ReportInterval] = []
+        while date <= end {
+            let key = dateFormatter.string(from: date)
+            let rows = grouped[key, default: []]
+            reports.append(ReportInterval(startDate: key, label: String(calendar.component(.day, from: date)),
+                                          totals: totals(rows), categories: categoryTotals(rows, previous: []),
+                                          transactions: rows.sorted { $0.id < $1.id }))
+            date = calendar.date(byAdding: .day, value: 1, to: date)!
+        }
+        return reports
+    }
+
+    private func monthlyReports(_ index: TransactionReportIndex, period: DashboardPeriod) -> [MonthlyReport] {
         (1...12).compactMap { month in
             let start = String(format: "%04d-%02d-01", period.year, month)
             let date = dateFormatter.date(from: start)!
@@ -44,16 +63,16 @@ actor DashboardReportService: DashboardReporting {
             let from = max(start, period.startDate)
             let through = min(end, period.endDate)
             guard from <= through else { return nil }
-            return monthlyReport(transactions, month: month, from: from, through: through)
+            return monthlyReport(index, month: month, from: from, through: through)
         }
     }
 
-    private func monthlyReport(_ transactions: [TransactionListItem], month: Int, from: String, through: String) -> MonthlyReport {
-        let current = rows(transactions, from: from, through: through)
+    private func monthlyReport(_ index: TransactionReportIndex, month: Int, from: String, through: String) -> MonthlyReport {
+        let current = index.rows(from: from, through: through)
         let previousDates = comparisonDates(from: from, through: through, component: .month)
-        let previous = rows(transactions, from: previousDates.start, through: previousDates.end)
+        let previous = index.rows(from: previousDates.start, through: previousDates.end)
         let priorDates = comparisonDates(from: from, through: through, component: .year)
-        let priorYear = rows(transactions, from: priorDates.start, through: priorDates.end)
+        let priorYear = index.rows(from: priorDates.start, through: priorDates.end)
         let totals = totals(current)
         return MonthlyReport(
             month: month, startDate: from, endDate: through, totals: totals,
@@ -62,10 +81,6 @@ actor DashboardReportService: DashboardReporting {
             categories: monthlyCategories(current, previous: previous, priorYear: priorYear),
             categoryAmounts: current.reduce(into: [:]) { $0[$1.category, default: 0] += $1.amountCents }
         )
-    }
-
-    private func rows(_ transactions: [TransactionListItem], from: String, through: String) -> [TransactionListItem] {
-        transactions.filter { $0.transactionDate >= from && $0.transactionDate <= through }
     }
 
     private func totals(_ transactions: [TransactionListItem]) -> ReportTotals {
