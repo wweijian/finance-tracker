@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class ImportTableInteractionTests: XCTestCase {
@@ -9,10 +9,10 @@ final class ImportTableInteractionTests: XCTestCase {
         var selection: Set<String> = []
         var checked: Set<String> = ["row-2"]
         let window = host(ImportCandidateTableView(
-            candidates: candidates,
+            candidates: .constant(candidates),
             selection: Binding(get: { selection }, set: { selection = $0 }),
             checkedRowIDs: Binding(get: { checked }, set: { checked = $0 }),
-            edit: { _ in }, remove: { _ in }
+            remove: { _ in }, categories: ["Food", "Other"]
         ))
         defer { window.close() }
         try await settle(window)
@@ -39,14 +39,13 @@ final class ImportTableInteractionTests: XCTestCase {
     func testNativeActionsKeepHighlightAndChecksSeparate() async throws {
         var selection: Set<String> = ["row-1"]
         var checked: Set<String> = ["row-3"]
-        var editedIDs: [String] = []
         var imported = false
         let window = host(VStack {
             ImportCandidateTableView(
-                candidates: candidates,
+                candidates: .constant(candidates),
                 selection: Binding(get: { selection }, set: { selection = $0 }),
                 checkedRowIDs: Binding(get: { checked }, set: { checked = $0 }),
-                edit: { editedIDs.append($0) }, remove: { _ in }
+                remove: { _ in }, categories: ["Food", "Other"]
             )
             Button("Import") { imported = true }.keyboardShortcut("i", modifiers: [.command])
         })
@@ -65,19 +64,15 @@ final class ImportTableInteractionTests: XCTestCase {
         XCTAssertEqual(checked, ["row-3"])
         try performTableAction("highlighted rows", in: window)
         try await settle(window)
-        XCTAssertTrue(editedIDs.isEmpty)
         XCTAssertEqual(checked, ["row-1", "row-3"])
         XCTAssertEqual(selection, ["row-1"])
-        try performTableAction("Edit transaction", in: window)
-        try await settle(window)
-        XCTAssertEqual(editedIDs, ["row-1"])
+        XCTAssertFalse(try tableMenu(in: window).items.contains { $0.title.hasPrefix("Edit transaction") })
         XCTAssertFalse(imported)
         try key("\u{F701}", code: 125, in: window, modifiers: .shift)
         try await settle(window)
         XCTAssertEqual(selection, ["row-1", "row-2"])
         XCTAssertFalse(try tableMenu(in: window).items.contains { $0.title.hasPrefix("Edit transaction") })
         try await settle(window)
-        XCTAssertEqual(editedIDs.count, 1)
         XCTAssertFalse(imported)
         try performTableAction("highlighted rows", in: window)
         try await settle(window)
@@ -93,10 +88,10 @@ final class ImportTableInteractionTests: XCTestCase {
         var checked: Set<String> = ["row-0", "row-3"]
         var removedIDs: Set<String> = []
         let window = host(ImportCandidateTableView(
-            candidates: candidates,
+            candidates: .constant(candidates),
             selection: Binding(get: { selection }, set: { selection = $0 }),
             checkedRowIDs: Binding(get: { checked }, set: { checked = $0 }),
-            edit: { _ in }, remove: { removedIDs = $0 }
+            remove: { removedIDs = $0 }, categories: ["Food", "Other"]
         ))
         defer { window.close() }
         try await settle(window)
@@ -114,9 +109,9 @@ final class ImportTableInteractionTests: XCTestCase {
         var selection: Set<String> = []
         var removed = false
         let window = host(ImportCandidateTableView(
-            candidates: candidates,
+            candidates: .constant(candidates),
             selection: Binding(get: { selection }, set: { selection = $0 }),
-            checkedRowIDs: .constant([]), edit: { _ in }, remove: { _ in removed = true }
+            checkedRowIDs: .constant([]), remove: { _ in removed = true }, categories: ["Food", "Other"]
         ))
         defer { window.close() }
         try await settle(window)
@@ -133,14 +128,13 @@ final class ImportTableInteractionTests: XCTestCase {
     func testTableShortcutsLeaveTextEntryOutsideTableAlone() async throws {
         var selection: Set<String> = []
         var text = "abc"
-        var edited = false
         var removed = false
         let window = host(VStack {
             ImportCandidateTableView(
-                candidates: candidates,
+                candidates: .constant(candidates),
                 selection: Binding(get: { selection }, set: { selection = $0 }),
                 checkedRowIDs: .constant([]),
-                edit: { _ in edited = true }, remove: { _ in removed = true }
+                remove: { _ in removed = true }, categories: ["Food", "Other"]
             )
             TextField("Outside table", text: Binding(get: { text }, set: { text = $0 }))
         })
@@ -159,7 +153,6 @@ final class ImportTableInteractionTests: XCTestCase {
         try key("\u{7F}", code: 51, in: window)
         try await settle(window)
         XCTAssertEqual(text, "abc")
-        XCTAssertFalse(edited)
         XCTAssertFalse(removed)
     }
 

@@ -18,7 +18,7 @@ final class LocalFilesController: ObservableObject {
 
     func chooseExport(_ transactions: [TransactionListItem]) {
         guard !isWorking, pendingRestore == nil, !transactions.isEmpty,
-              let url = saveLocation(title: "Export filtered transactions as CSV", filename: "ledgerly-transactions.csv", type: .commaSeparatedText) else { return }
+              let url = saveLocation(title: "Export filtered transactions as CSV", filename: "finance-transactions.csv", type: .commaSeparatedText) else { return }
         perform { [service] in
             try await service.export(transactions, to: url)
             return "Exported \(transactions.count) transactions to \(url.lastPathComponent)."
@@ -27,7 +27,7 @@ final class LocalFilesController: ObservableObject {
 
     func chooseBackup() {
         guard !isWorking, pendingRestore == nil,
-              let url = saveLocation(title: "Back up database", filename: "ledgerly-backup.sqlite", type: UTType(filenameExtension: "sqlite") ?? .data) else { return }
+              let url = saveLocation(title: "Back up database", filename: "finance-backup.sqlite", type: UTType(filenameExtension: "sqlite") ?? .data) else { return }
         perform { [service] in
             try await service.backUp(to: url)
             return "Database backed up to \(url.lastPathComponent)."
@@ -37,7 +37,7 @@ final class LocalFilesController: ObservableObject {
     func chooseRestore() {
         guard !isWorking, pendingRestore == nil else { return }
         let panel = NSOpenPanel()
-        panel.title = "Choose a Ledgerly database backup"
+        panel.title = "Choose a Finance database backup"
         panel.allowedContentTypes = [UTType(filenameExtension: "sqlite") ?? .data, .data]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false

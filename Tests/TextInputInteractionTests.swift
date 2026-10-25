@@ -1,32 +1,10 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class TextInputInteractionTests: XCTestCase {
-    func testImportFieldsPreserveInvalidDateDraftAndAcceptCorrectedDateAndMultilineRemarks() async throws {
-        var candidate = ImportCandidate(
-            id: "draft", sourceRow: 2, transactionDate: "2026-02-30", transactionType: .expense,
-            amount: "4.50", description: "Coffee", category: "Food", rejectionReason: "Date must use YYYY-MM-DD."
-        )
-        let window = host(ImportCandidateFieldsView(
-            candidate: Binding(get: { candidate }, set: { candidate = $0 }), categories: ["Food"]
-        ), width: 560, height: 400)
-        defer { window.close() }
-        try await settle(window)
-        let content = try XCTUnwrap(window.contentView)
-        let date = try XCTUnwrap(descendants(NSDatePicker.self, in: content).first)
-        XCTAssertEqual(candidate.transactionDate, "2026-02-30", "Showing a picker must preserve an invalid imported date until the user corrects it.")
-        try await choose("2026-02-28", using: date, window: window)
-        XCTAssertEqual(candidate.transactionDate, "2026-02-28")
-        let remarks = try XCTUnwrap(descendants(NSTextView.self, in: content).first { !$0.isFieldEditor })
-        try click(remarks, in: window)
-        remarks.insertText("Receipt saved\nReimbursable", replacementRange: remarks.selectedRange())
-        try await settle(window)
-        XCTAssertEqual(candidate.remarks, "Receipt saved\nReimbursable")
-    }
-
     func testNativeRemarksInFullTransactionEditorAcceptKeyboardInput() async throws {
         for notes in ["", "Original remarks"] {
             try await typeRemarksInTransactionEditor(initialNotes: notes)

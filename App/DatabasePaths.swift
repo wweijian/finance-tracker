@@ -5,13 +5,18 @@ struct DatabasePaths {
     let feedbackURL: URL
     let schemaURL: URL
 
-    init(fileManager: FileManager = .default) throws {
-        let supportURL = try fileManager.url(
+    init(
+        environment: AppEnvironment = .current,
+        applicationSupportURL: URL? = nil,
+        fileManager: FileManager = .default
+    ) throws {
+        let baseURL = try applicationSupportURL ?? fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        ).appendingPathComponent("Ledgerly", isDirectory: true)
+        )
+        let supportURL = baseURL.appendingPathComponent(environment.supportDirectoryName, isDirectory: true)
         try fileManager.createDirectory(at: supportURL, withIntermediateDirectories: true)
         databaseURL = supportURL.appendingPathComponent("finance.sqlite")
         feedbackURL = supportURL.appendingPathComponent("feedback.txt")

@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct ImportPreviewView: View {
-    let preview: ImportPreview
+    @Binding var candidates: [ImportCandidate]
     let isWorking: Bool
     let removedRowCount: Int
     let remove: (Set<String>) -> Void
     let undoRemovals: () -> Void
-    let edit: (String) -> Void
+    let categories: [String]
     @State private var filter: ImportRowFilter = .all
     @State private var selection: Set<String> = []
     @State private var checkedRowIDs: Set<String> = []
@@ -21,40 +21,34 @@ struct ImportPreviewView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 370)
+                .frame(width: 470)
                 Spacer()
                 if removedRowCount > 0 {
-                    Button("Undo removals", systemImage: "arrow.uturn.backward", action: undoRemovals)
+                    Button("Undo removals (\(removedRowCount))", systemImage: "arrow.uturn.backward", action: undoRemovals)
                         .help("Put all removed rows back into this preview")
                 }
-                Text(removedRowCount == 0 ? "\(preview.candidates.count) rows in file" : "\(preview.candidates.count) remaining · \(removedRowCount) removed")
+                Text("\(preview.candidates.count) transactions")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            .controlSize(.small)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
             .background(Color(nsColor: .windowBackgroundColor))
             Divider()
-            if visibleCandidates.isEmpty {
+            if candidates.isEmpty {
                 ContentUnavailableView(
-                    preview.candidates.isEmpty ? "No rows left to import" : filter == .needsAttention ? "No rows need attention" : "No ready rows",
-                    systemImage: filter == .needsAttention ? "checkmark.circle" : "list.bullet.rectangle",
-                    description: Text(preview.candidates.isEmpty ? "Undo removals to bring rows back, or choose another CSV." : filter == .needsAttention ? "The remaining rows have passed validation." : "Edit rejected rows in the preview to correct them, or choose another CSV.")
+                    "No rows left to import", systemImage: "list.bullet.rectangle",
+                    description: Text("Undo removals to bring rows back, or choose another CSV.")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ImportCandidateTableView(candidates: visibleCandidates, selection: $selection,
-                                         checkedRowIDs: $checkedRowIDs, edit: edit, remove: remove)
+                ImportCandidateTableView(candidates: $candidates, selection: $selection,
+                                         checkedRowIDs: $checkedRowIDs, remove: remove,
+                                         categories: categories, filter: filter)
             }
-            Divider()
-            ImportRowDetailView(
-                candidate: selectedCandidate,
-                highlightedCount: selection.count,
-                allRowsChecked: allRowsChecked,
-                hasVisibleRows: !visibleCandidates.isEmpty,
-                isWorking: isWorking,
-                toggleSelectAll: toggleSelectAll
-            )
+            if let selectedCandidate {
+                Divider()
+                ImportRowDetailView(candidate: selectedCandidate)
+            }
         }
         .disabled(isWorking)
         .onChange(of: filter) { selection = [] }
@@ -64,15 +58,8 @@ struct ImportPreviewView: View {
         }
     }
 
+    private var preview: ImportPreview { ImportPreview(candidates: candidates) }
     private var visibleCandidates: [ImportCandidate] { preview.rows(matching: filter) }
-    private var allRowsChecked: Bool {
-        !visibleCandidates.isEmpty && Set(visibleCandidates.map(\.id)).isSubset(of: checkedRowIDs)
-    }
-    private func toggleSelectAll() {
-        let visibleIDs = Set(visibleCandidates.map(\.id))
-        if allRowsChecked { checkedRowIDs.subtract(visibleIDs) }
-        else { checkedRowIDs.formUnion(visibleIDs) }
-    }
     private var selectedCandidate: ImportCandidate? {
         selection.count == 1 ? visibleCandidates.first { selection.contains($0.id) } : nil
     }

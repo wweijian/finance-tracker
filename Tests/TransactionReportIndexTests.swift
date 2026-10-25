@@ -1,5 +1,5 @@
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class TransactionReportIndexTests: XCTestCase {
     func testIndexedRowsMatchInclusiveScanForSingleMonthAndCrossYearRanges() {

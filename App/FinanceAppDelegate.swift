@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-final class LedgerlyAppDelegate: NSObject, NSApplicationDelegate {
+final class FinanceAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         guard let application = notification.object as? NSApplication else { return }
         // A standalone executable launched by `swift run` needs a foreground app policy.

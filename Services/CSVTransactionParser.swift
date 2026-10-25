@@ -29,18 +29,21 @@ struct CSVTransactionParser: Sendable {
 
     private func isHeader(_ row: [String], for kind: CSVImportKind) -> Bool {
         let headers = row.map(normalize)
-        if kind == .ledgerly {
-            return headers == LedgerlyCSVFormat.headers
+        guard Set(headers).count == headers.count else { return false }
+        let withoutCategory = headers.filter { $0 != "category" }
+        if kind == .finance {
+            return withoutCategory == FinanceCSVFormat.headers.filter { $0 != "category" }
         }
         let optionalHeaders = headers.filter { $0 == "remarks" || $0 == "notes" }
-        let requiredHeaders = headers.filter { $0 != "remarks" && $0 != "notes" }
-        return optionalHeaders.count <= 1 && requiredHeaders == expectedHeaders(for: kind).map(normalize)
+        let requiredHeaders = withoutCategory.filter { $0 != "remarks" && $0 != "notes" }
+        let expected = expectedHeaders(for: kind).map(normalize).filter { $0 != "category" }
+        return optionalHeaders.count <= 1 && requiredHeaders == expected
     }
 
     private func expectedHeaders(for kind: CSVImportKind) -> [String] {
         switch kind {
-        case .ledgerly:
-            return LedgerlyCSVFormat.headers
+        case .finance:
+            return FinanceCSVFormat.headers
         case .debit:
             return [
                 "Transaction Date",
@@ -114,8 +117,8 @@ struct CSVTransactionParser: Sendable {
         kind: CSVImportKind,
         headers: [String: Int]
     ) -> ImportCandidate {
-        if kind == .ledgerly {
-            return parseLedgerlyCandidate(row, sourceRow: sourceRow, headers: headers)
+        if kind == .finance {
+            return parseFinanceCandidate(row, sourceRow: sourceRow, headers: headers)
         }
         let dateText = value(named: ["transaction date", "date"], in: row, headers: headers)
         let description = value(named: [descriptionColumn(for: kind)], in: row, headers: headers)
@@ -137,7 +140,7 @@ struct CSVTransactionParser: Sendable {
         )
     }
 
-    private func parseLedgerlyCandidate(
+    private func parseFinanceCandidate(
         _ row: [String],
         sourceRow: Int,
         headers: [String: Int]
@@ -154,7 +157,7 @@ struct CSVTransactionParser: Sendable {
             category: value(named: ["category"], in: row, headers: headers),
             rejectionReason: nil,
             remarks: rawValue(named: "notes", in: row, headers: headers),
-            ledgerlyDetails: LedgerlyImportDetails(
+            financeDetails: FinanceImportDetails(
                 transactionID: value(named: ["id"], in: row, headers: headers),
                 transactionType: type,
                 currency: value(named: ["currency"], in: row, headers: headers),
@@ -179,7 +182,7 @@ struct CSVTransactionParser: Sendable {
 
     private func descriptionColumn(for kind: CSVImportKind) -> String {
         switch kind {
-        case .debit, .ledgerly:
+        case .debit, .finance:
             return "description"
         case .credit:
             return "transaction description"
@@ -193,6 +196,9 @@ struct CSVTransactionParser: Sendable {
     }
 
     private func parseDate(_ value: String) -> Date? {
+        if value.range(of: #"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"#, options: .regularExpression) != nil {
+            return TransactionDateFormatter().date(from: value)
+        }
         let formats = ["dd MMM yyyy", "d MMM yyyy", "yyyy-MM-dd", "dd/MM/yyyy"]
         for format in formats {
             if let date = dateFormatter(for: format).date(from: value) {
@@ -213,6 +219,7 @@ struct CSVTransactionParser: Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = format
+        formatter.isLenient = false
         return formatter
     }
 

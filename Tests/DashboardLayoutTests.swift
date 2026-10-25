@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class DashboardLayoutTests: XCTestCase {
@@ -136,7 +136,7 @@ final class DashboardLayoutTests: XCTestCase {
     private func capture(_ view: NSView, name: String) throws {
         let defaultDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent(".build/report-previews", isDirectory: true)
-        let url = ProcessInfo.processInfo.environment["LEDGERLY_PREVIEW_DIRECTORY"].map {
+        let url = ProcessInfo.processInfo.environment["FINANCE_PREVIEW_DIRECTORY"].map {
             URL(fileURLWithPath: $0, isDirectory: true)
         } ?? defaultDirectory
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

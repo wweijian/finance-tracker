@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class ImportRemovalConfirmationTests: XCTestCase {
@@ -40,22 +40,20 @@ final class ImportRemovalConfirmationTests: XCTestCase {
         XCTAssertEqual(controller.importCandidates, original)
     }
 
-    func testEditorDeletionKeepsEditorOpenUntilConfirmed() async throws {
+    func testDeletionKeepsEditedRowUntilConfirmed() async throws {
         let store = try SQLiteTestStore()
         let controller = makeController(store)
         controller.previewCSV(at: try writeCSV(in: store), kind: .debit)
         try await waitForImport(controller)
         let original = try XCTUnwrap(controller.importCandidates.first)
-        controller.editImportCandidate(id: original.id)
         controller.requestImportRowRemoval([original.id])
-        XCTAssertEqual(controller.importEditorCandidate, original)
+        XCTAssertEqual(controller.importCandidates.first, original)
         XCTAssertEqual(controller.importCandidates.count, 3)
         controller.importRowRemovalIDs = []
-        XCTAssertEqual(controller.importEditorCandidate, original)
+        XCTAssertEqual(controller.importCandidates.first, original)
         controller.requestImportRowRemoval([original.id])
         controller.confirmImportRowRemoval(controller.importRowRemovalIDs)
         try await waitForImport(controller)
-        XCTAssertNil(controller.importEditorCandidate)
         XCTAssertFalse(controller.importCandidates.contains { $0.id == original.id })
         XCTAssertEqual(controller.removedImportRowCount, 1)
     }

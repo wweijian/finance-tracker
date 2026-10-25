@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class MonthlyReportTableTests: XCTestCase {

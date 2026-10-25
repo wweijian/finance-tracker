@@ -4,25 +4,30 @@ struct ImportTableActionsView: View {
     let highlightedCount: Int
     let checkedCount: Int
     let allHighlightedChecked: Bool
+    let allRowsChecked: Bool
+    let hasVisibleRows: Bool
+    let toggleAll: () -> Void
     let toggleChecks: () -> Void
-    let edit: () -> Void
     let remove: () -> Void
+    @ObservedObject var scrollController: ImportTableScrollController
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Button(allRowsChecked ? "Uncheck all" : "Check all", action: toggleAll)
+                .disabled(!hasVisibleRows)
             Button(allHighlightedChecked ? "Uncheck highlighted" : "Check highlighted", action: toggleChecks)
                 .keyboardShortcut("k", modifiers: [.command, .shift])
-                .help("Check or uncheck highlighted rows (⇧⌘K)")
                 .disabled(highlightedCount == 0)
-            Button("Edit highlighted…", systemImage: "pencil", action: edit)
-                .keyboardShortcut("e", modifiers: [.command])
-                .disabled(highlightedCount != 1)
-            Spacer()
-            Button("Delete checked (\(checkedCount))", systemImage: "trash", role: .destructive, action: remove)
-                .keyboardShortcut(.delete, modifiers: [.command])
-                .disabled(checkedCount == 0)
+            if checkedCount > 0 {
+                Button("Delete checked (\(checkedCount))", systemImage: "trash", role: .destructive, action: remove)
+                    .keyboardShortcut(.delete, modifiers: [.command])
+            }
+            Spacer(minLength: 12)
+            ImportHorizontalScrollControls(controller: scrollController)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .controlSize(.small)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }

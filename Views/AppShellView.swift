@@ -58,7 +58,10 @@ struct AppShellView: View {
         }
         .sheet(isPresented: $transactionsController.isShowingBulkImport) {
             BulkImportView(
-                preview: transactionsController.importPreview,
+                candidates: Binding(
+                    get: { transactionsController.importCandidates },
+                    set: { transactionsController.updateImportCandidates($0) }
+                ),
                 summary: transactionsController.bulkImportSummary,
                 errorMessage: transactionsController.bulkImportError,
                 activity: transactionsController.importActivity,
@@ -69,11 +72,7 @@ struct AppShellView: View {
                 commitAll: transactionsController.commitBulkImport,
                 undo: transactionsController.undoBulkImport,
                 cancel: transactionsController.cancelBulkImport,
-                editingCandidate: $transactionsController.importEditorCandidate,
                 categories: transactionsController.categories,
-                editorError: transactionsController.importEditorError,
-                editCandidate: transactionsController.editImportCandidate,
-                saveCandidate: transactionsController.saveImportCandidate,
                 removalIDs: $transactionsController.importRowRemovalIDs,
                 confirmRemoval: transactionsController.confirmImportRowRemoval
             )

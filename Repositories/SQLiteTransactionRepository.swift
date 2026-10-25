@@ -167,7 +167,7 @@ final class SQLiteTransactionRepository: TransactionRepository, DatabaseFileRepo
         for suffix in ["-wal", "-shm", "-journal"] {
             guard !FileManager.default.fileExists(atPath: url.path + suffix) else { throw LocalFileError.destinationInUse }
         }
-        let temporaryURL = url.deletingLastPathComponent().appendingPathComponent(".ledgerly-\(UUID().uuidString).sqlite")
+        let temporaryURL = url.deletingLastPathComponent().appendingPathComponent(".finance-\(UUID().uuidString).sqlite")
         defer { try? FileManager.default.removeItem(at: temporaryURL) }
         try writeBackup(at: temporaryURL)
         if FileManager.default.fileExists(atPath: url.path) {

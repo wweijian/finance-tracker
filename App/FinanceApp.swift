@@ -1,8 +1,9 @@
 import SwiftUI
+import Darwin
 
 @main
-struct LedgerlyApp: App {
-    @NSApplicationDelegateAdaptor(LedgerlyAppDelegate.self) private var appDelegate
+struct FinanceApp: App {
+    @NSApplicationDelegateAdaptor(FinanceAppDelegate.self) private var appDelegate
     @StateObject private var dashboardController: DashboardController
     @StateObject private var transactionsController: TransactionsController
     @StateObject private var localFilesController: LocalFilesController
@@ -10,6 +11,11 @@ struct LedgerlyApp: App {
 
     init() {
         do {
+            #if DEBUG
+            if try DevelopmentDataCommand.run(arguments: ProcessInfo.processInfo.arguments) {
+                exit(EXIT_SUCCESS)
+            }
+            #endif
             let container = try AppContainer()
             _feedbackController = StateObject(wrappedValue: FeedbackController(repository: container.feedbackRepository))
             _localFilesController = StateObject(wrappedValue: LocalFilesController(service: container.localFileService))
@@ -23,7 +29,7 @@ struct LedgerlyApp: App {
                 )
             )
         } catch {
-            fatalError("Ledgerly could not open its local database: \(error.localizedDescription)")
+            fatalError("Finance could not open its local database: \(error.localizedDescription)")
         }
     }
 

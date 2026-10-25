@@ -49,7 +49,7 @@ actor BulkImportService: BulkImportHandling {
             candidate.rejectionReason = "Amount is invalid."
             return candidate
         }
-        if let reason = try ledgerlyRejectionReason(for: candidate, amountCents: amountCents) {
+        if let reason = try financeRejectionReason(for: candidate, amountCents: amountCents) {
             candidate.rejectionReason = reason
             return candidate
         }
@@ -70,8 +70,8 @@ actor BulkImportService: BulkImportHandling {
         return candidate
     }
 
-    private func ledgerlyRejectionReason(for candidate: ImportCandidate, amountCents: Int) throws -> String? {
-        guard let details = candidate.ledgerlyDetails else { return nil }
+    private func financeRejectionReason(for candidate: ImportCandidate, amountCents: Int) throws -> String? {
+        guard let details = candidate.financeDetails else { return nil }
         guard !details.transactionID.isEmpty else { return "Transaction ID is required." }
         guard TransactionType(rawValue: details.transactionType) == candidate.transactionType else {
             return "Transaction type must be income or expense."
@@ -110,7 +110,7 @@ actor BulkImportService: BulkImportHandling {
         return candidates.map { candidate in
             guard candidate.isReady else { return candidate }
             let key = duplicateKey(for: candidate)
-            if let transactionID = candidate.ledgerlyDetails?.transactionID,
+            if let transactionID = candidate.financeDetails?.transactionID,
                let firstRow = firstIDRows[transactionID] {
                 var duplicate = candidate
                 duplicate.rejectionReason = "Transaction ID is repeated from row \(firstRow) in this import."
@@ -118,7 +118,7 @@ actor BulkImportService: BulkImportHandling {
             }
             guard let firstRow = firstRows[key] else {
                 firstRows[key] = candidate.sourceRow
-                if let transactionID = candidate.ledgerlyDetails?.transactionID {
+                if let transactionID = candidate.financeDetails?.transactionID {
                     firstIDRows[transactionID] = candidate.sourceRow
                 }
                 return candidate
@@ -136,17 +136,19 @@ actor BulkImportService: BulkImportHandling {
     }
 
     private func canonicalCategory(_ value: String, categories: [String]) -> String? {
-        categories.first { $0.caseInsensitiveCompare(value) == .orderedSame }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requested = trimmed.isEmpty ? "Other" : trimmed
+        return categories.first { $0.caseInsensitiveCompare(requested) == .orderedSame }
     }
 
     private func makeTransaction(from candidate: ImportCandidate) throws -> FinanceTransaction {
         guard let amountCents = amountFormatter.cents(from: candidate.amount) else { throw BulkImportError.invalidCandidate }
         let now = ISO8601DateFormatter().string(from: Date())
-        let remarks = candidate.ledgerlyDetails == nil
+        let remarks = candidate.financeDetails == nil
             ? candidate.remarks.trimmingCharacters(in: .whitespacesAndNewlines)
             : candidate.remarks
         return FinanceTransaction(
-            id: candidate.ledgerlyDetails?.transactionID ?? UUID().uuidString,
+            id: candidate.financeDetails?.transactionID ?? UUID().uuidString,
             transactionDate: candidate.transactionDate,
             transactionYear: Int(candidate.transactionDate.prefix(4)) ?? 0,
             transactionType: candidate.transactionType,
@@ -157,7 +159,7 @@ actor BulkImportService: BulkImportHandling {
             notes: remarks.isEmpty ? nil : remarks,
             dateCreated: now,
             updatedAt: now,
-            deletedAt: candidate.ledgerlyDetails?.deletedAt
+            deletedAt: candidate.financeDetails?.deletedAt
         )
     }
 }

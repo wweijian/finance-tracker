@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class ImportTableScrollViewTests: XCTestCase {
@@ -49,7 +49,8 @@ final class ImportTableScrollViewTests: XCTestCase {
             amount: "4.50", description: "Coffee", category: "Food", rejectionReason: nil
         )
         let hostingView = NSHostingView(rootView: ImportCandidateTableView(
-            candidates: [candidate], selection: .constant([]), checkedRowIDs: .constant([]), edit: { _ in }, remove: { _ in }
+            candidates: .constant([candidate]), selection: .constant([]), checkedRowIDs: .constant([]),
+            remove: { _ in }, categories: ["Food", "Other"]
         ))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1_100, height: 400),
                               styleMask: [.borderless], backing: .buffered, defer: false)
@@ -60,13 +61,35 @@ final class ImportTableScrollViewTests: XCTestCase {
         let scrollView = try XCTUnwrap(findHorizontalScrollView(in: hostingView))
         let document = try XCTUnwrap(scrollView.documentView)
         let scroller = try XCTUnwrap(scrollView.horizontalScroller)
+        XCTAssertEqual(scrollView.scrollerStyle, .legacy)
+        XCTAssertFalse(scrollView.autohidesScrollers)
+        XCTAssertFalse(scroller.isHidden)
+        XCTAssertGreaterThan(scroller.frame.height, 0)
         XCTAssertLessThan(scroller.knobProportion, 1)
+
+        let controls = ImportTableScrollController()
+        controls.attach(to: scrollView)
+        XCTAssertFalse(controls.canScrollLeft)
+        XCTAssertTrue(controls.canScrollRight)
+        controls.scrollRight()
+        XCTAssertGreaterThan(scrollView.contentView.bounds.minX, 0)
+        XCTAssertTrue(controls.canScrollLeft)
+        controls.scrollLeft()
+        XCTAssertEqual(scrollView.contentView.bounds.minX, 0, accuracy: 1)
+        controls.scroll(to: 1)
+        XCTAssertFalse(controls.canScrollRight)
+        let table = try XCTUnwrap(document as? NSTableView)
+        XCTAssertEqual(try XCTUnwrap(table.headerView?.superview).bounds.minX, scrollView.contentView.bounds.minX, accuracy: 1)
+        controls.scroll(to: 0)
+        XCTAssertEqual(scrollView.contentView.bounds.minX, 0, accuracy: 1)
 
         scrollView.contentView.scroll(to: NSPoint(x: document.frame.width - scrollView.contentView.bounds.width, y: 0))
         scrollView.reflectScrolledClipView(scrollView.contentView)
+        try await settleLayout(hostingView)
         XCTAssertGreaterThan(scrollView.contentView.bounds.minX, 0)
         XCTAssertEqual(scrollView.contentView.bounds.maxX, document.frame.maxX, accuracy: 1)
         XCTAssertEqual(scroller.doubleValue, 1, accuracy: 0.01)
+        XCTAssertFalse(controls.canScrollRight)
 
         window.setContentSize(NSSize(width: 1_000, height: 500))
         try await settleLayout(hostingView)
@@ -81,19 +104,8 @@ final class ImportTableScrollViewTests: XCTestCase {
         return view.subviews.compactMap { findHorizontalScrollView(in: $0) }.first
     }
 
-    private func importView(_ controller: TransactionsController) -> BulkImportView {
-        BulkImportView(preview: controller.importPreview, summary: controller.bulkImportSummary,
-                       errorMessage: controller.bulkImportError,
-                       activity: controller.importActivity, previewCSV: controller.previewCSV,
-                       removedRowCount: controller.removedImportRowCount, removeRows: controller.requestImportRowRemoval,
-                       undoRowRemovals: controller.undoImportRowRemovals,
-                       commitAll: controller.commitBulkImport, undo: controller.undoBulkImport,
-                       cancel: controller.cancelBulkImport,
-                       editingCandidate: Binding(get: { controller.importEditorCandidate }, set: { controller.importEditorCandidate = $0 }),
-                       categories: controller.categories, editorError: controller.importEditorError,
-                       editCandidate: controller.editImportCandidate, saveCandidate: controller.saveImportCandidate,
-                       removalIDs: Binding(get: { controller.importRowRemovalIDs }, set: { controller.importRowRemovalIDs = $0 }),
-                       confirmRemoval: controller.confirmImportRowRemoval)
+    private func importView(_ controller: TransactionsController) -> ImportPreviewTestView {
+        ImportPreviewTestView(controller: controller)
     }
 
     private func waitForImport(_ controller: TransactionsController) async throws {

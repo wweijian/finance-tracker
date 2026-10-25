@@ -1,5 +1,5 @@
 import Foundation
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class ImportTestRepository: TransactionRepository, @unchecked Sendable {
     func transactions(includeDeleted: Bool) throws -> [TransactionListItem] { [] }

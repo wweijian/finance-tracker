@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class DatabaseFileRepositoryTests: XCTestCase {
     func testBackupRestoreIncludesDeletedRowsAndAllowsFurtherWrites() throws {

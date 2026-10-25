@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 @MainActor
 final class DashboardControllerTests: XCTestCase {

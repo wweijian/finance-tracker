@@ -1,5 +1,5 @@
 import Foundation
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 enum TransactionFixture {
     static func make(

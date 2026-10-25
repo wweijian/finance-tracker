@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class DashboardReportServiceTests: XCTestCase {
     func testDailyReportsIncludeLeapDayAndIgnoreExcludedRowsAndInvestmentsInCategories() async throws {

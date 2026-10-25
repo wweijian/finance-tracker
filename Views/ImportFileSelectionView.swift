@@ -10,7 +10,7 @@ struct ImportFileSelectionView: View {
             Label(errorMessage != nil ? "Couldn’t read this file" : filename == nil ? "Choose a transaction CSV" : "No transactions found",
                   systemImage: errorMessage == nil ? "doc.badge.plus" : "exclamationmark.triangle")
         } description: {
-            Text(errorMessage ?? (filename == nil ? "Select a cleaned debit or credit CSV, or a Ledgerly CSV exported from the app. You’ll review every row before importing." : "This CSV contains no transaction rows. Choose another file to preview."))
+            Text(errorMessage ?? (filename == nil ? "Select a cleaned debit or credit CSV, or a Finance CSV exported from the app. Category is optional and defaults to Other. You can edit fields directly in the preview before importing." : "This CSV contains no transaction rows. Choose another file to preview."))
                 .textSelection(.enabled)
         } actions: {
             HStack(spacing: 12) {

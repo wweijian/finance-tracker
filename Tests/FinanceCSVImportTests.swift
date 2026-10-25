@@ -1,8 +1,8 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
-final class LedgerlyCSVImportTests: XCTestCase {
+final class FinanceCSVImportTests: XCTestCase {
     private let categories = ["Food & Dining"]
 
     func testExportImportsIntoFreshDatabaseWithoutLosingExportedFields() async throws {
@@ -18,16 +18,16 @@ final class LedgerlyCSVImportTests: XCTestCase {
             id: "deleted", cents: 1, deletedAt: "2026-05-09T00:00:00.123Z", notes: "Deleted remark"
         ))
         let exportedRows = try source.repository.transactions(includeDeleted: true)
-        let url = source.directory.appendingPathComponent("ledgerly.csv")
+        let url = source.directory.appendingPathComponent("finance.csv")
         try TransactionCSVExporter().csv(exportedRows).write(to: url, atomically: true, encoding: .utf8)
         let original = try Data(contentsOf: url)
 
         let destination = try SQLiteTestStore()
         let service = BulkImportService(repository: destination.repository)
-        let preview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let preview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertEqual(preview.count, 3)
         XCTAssertTrue(preview.allSatisfy(\.isReady))
-        XCTAssertEqual(preview.first { $0.ledgerlyDetails?.transactionID == "deleted" }?.statusLabel, "Ready · Deleted")
+        XCTAssertEqual(preview.first { $0.financeDetails?.transactionID == "deleted" }?.statusLabel, "Ready · Deleted")
         XCTAssertTrue(try destination.repository.transactions(includeDeleted: true).isEmpty)
 
         let summary = try await service.commit(preview, categories: categories)
@@ -41,7 +41,7 @@ final class LedgerlyCSVImportTests: XCTestCase {
         XCTAssertEqual(try destination.repository.transactions(includeDeleted: false).count, 2)
         XCTAssertEqual(try Data(contentsOf: url), original)
 
-        let repeatedPreview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let repeatedPreview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertTrue(repeatedPreview.allSatisfy { !$0.isReady })
         let repeatedSummary = try await service.commit(repeatedPreview, categories: categories)
         XCTAssertEqual(repeatedSummary.acceptedCount, 0)
@@ -50,14 +50,14 @@ final class LedgerlyCSVImportTests: XCTestCase {
         try await service.undo(summary)
         XCTAssertTrue(try destination.repository.transactions(includeDeleted: false).isEmpty)
         XCTAssertEqual(try destination.repository.transaction(id: "deleted")?.deletedAt, "2026-05-09T00:00:00.123Z")
-        let retry = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let retry = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertEqual(retry.filter(\.isReady).count, 2)
         let retrySummary = try await service.commit(retry, categories: categories)
         XCTAssertEqual(retrySummary.acceptedCount, 2)
         XCTAssertEqual(try destination.repository.transactions(includeDeleted: true).count, 3)
     }
 
-    func testInvalidLedgerlyFieldsAreRejectedInPreviewAndCommit() async throws {
+    func testInvalidFinanceFieldsAreRejectedInPreviewAndCommit() async throws {
         let store = try SQLiteTestStore()
         let service = BulkImportService(repository: store.repository)
         let csv = """
@@ -73,7 +73,7 @@ final class LedgerlyCSVImportTests: XCTestCase {
         valid,2026-05-08,income,4.50,SGD,Valid row,food & dining,,
         """
         let url = try write(csv, in: store)
-        let preview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let preview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertEqual(preview.count, 9)
         XCTAssertTrue(preview.dropLast().allSatisfy { !$0.isReady })
         XCTAssertTrue(try XCTUnwrap(preview.last).isReady)
@@ -94,7 +94,7 @@ final class LedgerlyCSVImportTests: XCTestCase {
         second,2026-05-08,expense,4.50,SGD,Coffee,Food & Dining,Different notes,
         """
         let url = try write(csv, in: store)
-        let preview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let preview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertTrue(preview[0].isReady)
         XCTAssertEqual(preview[1].rejectionReason, "Transaction ID is repeated from row 2 in this import.")
         XCTAssertEqual(preview[2].rejectionReason, "Duplicate of row 2 in this import.")
@@ -113,7 +113,7 @@ final class LedgerlyCSVImportTests: XCTestCase {
         existing,2026-05-08,expense,4.50,SGD,Different transaction,Food & Dining,,
         """
         let url = try write(csv, in: store)
-        let preview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let preview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertEqual(preview.first?.rejectionReason, "Transaction ID belongs to a different existing transaction.")
         let summary = try await service.commit(preview, categories: categories)
         XCTAssertEqual(summary.acceptedCount, 0)
@@ -129,7 +129,7 @@ final class LedgerlyCSVImportTests: XCTestCase {
         new,2026-05-08,income,10.00,SGD,Refund,Food & Dining,,
         """
         let url = try write(csv, in: store)
-        let preview = try await service.previewFile(at: url, kind: .ledgerly, categories: categories)
+        let preview = try await service.previewFile(at: url, kind: .finance, categories: categories)
         XCTAssertTrue(preview.allSatisfy(\.isReady))
         try store.repository.save(TransactionFixture.make(id: "conflict", description: "Another transaction"))
         let summary = try await service.commit(preview, categories: categories)
@@ -138,18 +138,18 @@ final class LedgerlyCSVImportTests: XCTestCase {
         XCTAssertEqual(try store.repository.transaction(id: "conflict")?.description, "Another transaction")
     }
 
-    func testRequiresExportHeadersAndReportsLedgerlyHeaderOnFormatMismatch() throws {
+    func testRequiresExportHeadersAndReportsFinanceHeaderOnFormatMismatch() throws {
         let store = try SQLiteTestStore()
         let exporter = TransactionCSVExporter()
         let url = try write(exporter.csv([]), in: store)
-        XCTAssertTrue(try CSVTransactionParser().parse(url: url, kind: .ledgerly).candidates.isEmpty)
+        XCTAssertTrue(try CSVTransactionParser().parse(url: url, kind: .finance).candidates.isEmpty)
         XCTAssertThrowsError(try CSVTransactionParser().parse(url: url, kind: .debit)) { error in
             XCTAssertTrue(error.localizedDescription.contains("transaction_date"))
         }
         let missingHeader = try write(exporter.csv([]).replacingOccurrences(of: ",notes", with: ""), in: store)
-        XCTAssertThrowsError(try CSVTransactionParser().parse(url: missingHeader, kind: .ledgerly))
+        XCTAssertThrowsError(try CSVTransactionParser().parse(url: missingHeader, kind: .finance))
         let duplicateHeader = try write(exporter.csv([]).replacingOccurrences(of: ",notes", with: ",notes,notes"), in: store)
-        XCTAssertThrowsError(try CSVTransactionParser().parse(url: duplicateHeader, kind: .ledgerly))
+        XCTAssertThrowsError(try CSVTransactionParser().parse(url: duplicateHeader, kind: .finance))
     }
 
     private func write(_ csv: String, in store: SQLiteTestStore) throws -> URL {

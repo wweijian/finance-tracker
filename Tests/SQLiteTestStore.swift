@@ -1,5 +1,5 @@
 import Foundation
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class SQLiteTestStore {
     let directory: URL

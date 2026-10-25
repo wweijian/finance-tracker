@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class SQLiteTransactionRepositoryTests: XCTestCase {
     func testCreateReadUpdateAndReopen() throws {

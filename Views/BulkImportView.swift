@@ -9,7 +9,7 @@ struct BulkImportView: View {
     @State private var fileSelectionError: String?
     @State private var showsSkipWarning = false
 
-    let preview: ImportPreview
+    @Binding var candidates: [ImportCandidate]
     let summary: BulkImportSummary?
     let errorMessage: String?
     let activity: ImportActivity?
@@ -20,11 +20,7 @@ struct BulkImportView: View {
     let commitAll: () -> Void
     let undo: () -> Void
     let cancel: () -> Void
-    @Binding var editingCandidate: ImportCandidate?
     let categories: [String]
-    let editorError: String?
-    let editCandidate: (String) -> Void
-    let saveCandidate: (ImportCandidate) -> Void
     @Binding var removalIDs: Set<String>
     let confirmRemoval: (Set<String>) -> Void
 
@@ -43,19 +39,8 @@ struct BulkImportView: View {
                 importSheet
             }
         }
-        .interactiveDismissDisabled(activity != nil)
-        .onExitCommand { if activity == nil && editingCandidate == nil { close() } }
-        .sheet(item: $editingCandidate) { candidate in
-            ImportCandidateEditorView(
-                candidate: candidate,
-                categories: categories,
-                errorMessage: editorError,
-                isWorking: activity != nil,
-                save: saveCandidate,
-                remove: { removeRows([candidate.id]) }
-            )
-            .modifier(ImportRemovalConfirmationModifier(rowIDs: $removalIDs, isActive: true, confirm: confirmRemoval))
-        }
+        .interactiveDismissDisabled(isWorking)
+        .onExitCommand { if !isWorking { close() } }
         .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
             selectFile(result)
         }
@@ -63,7 +48,7 @@ struct BulkImportView: View {
             Button("Cancel", role: .cancel) {}
             Button("Skip rows and import", action: commitAll)
         } message: {
-            Text("Ledgerly will import \(preview.readyCount) ready transactions and skip \(preview.rejectedCount) rejected rows. The CSV file stays unchanged.")
+            Text("Finance will import \(preview.readyCount) ready transactions and skip \(preview.rejectedCount) rejected rows. The CSV file stays unchanged.")
         }
     }
 
@@ -71,13 +56,14 @@ struct BulkImportView: View {
         VStack(spacing: 0) {
             ImportSourceBarView(
                 filename: selectedFileURL?.lastPathComponent,
+                hasPreview: !isCompact,
                 kind: $selectedKind,
-                isWorking: activity != nil,
+                isWorking: isWorking,
                 chooseFile: chooseFile
             )
             Divider()
             ImportContentView(
-                preview: preview,
+                candidates: $candidates,
                 filename: selectedFileURL?.lastPathComponent,
                 activity: activity,
                 errorMessage: fileSelectionError ?? errorMessage,
@@ -85,7 +71,7 @@ struct BulkImportView: View {
                 removedRowCount: removedRowCount,
                 remove: removeRows,
                 undoRemovals: undoRowRemovals,
-                edit: editCandidate
+                categories: categories
             )
             Divider()
             ImportFooterView(
@@ -96,19 +82,26 @@ struct BulkImportView: View {
                 requestImport: requestImport
             )
         }
-        .frame(width: isCompact ? 600 : 1_100, height: isCompact ? 380 : 620)
-        .modifier(ImportRemovalConfirmationModifier(rowIDs: $removalIDs, isActive: editingCandidate == nil, confirm: confirmRemoval))
+        .frame(
+            minWidth: isCompact ? 600 : 980, idealWidth: isCompact ? 600 : 1_280,
+            maxWidth: isCompact ? 600 : .infinity,
+            minHeight: isCompact ? 380 : 560, idealHeight: isCompact ? 380 : 740,
+            maxHeight: isCompact ? 380 : .infinity
+        )
+        .modifier(ImportRemovalConfirmationModifier(rowIDs: $removalIDs, isActive: true, confirm: confirmRemoval))
         .onChange(of: selectedKind) {
-            guard let selectedFileURL, activity == nil else { return }
+            guard let selectedFileURL, !isWorking else { return }
             fileSelectionError = nil
             previewCSV(selectedFileURL, selectedKind)
         }
     }
 
-    private var isCompact: Bool { selectedFileURL == nil && preview.candidates.isEmpty }
+    private var preview: ImportPreview { ImportPreview(candidates: candidates) }
+    private var isWorking: Bool { activity != nil && activity != .validatingRows }
+    private var isCompact: Bool { selectedFileURL == nil && candidates.isEmpty }
 
     private func chooseFile() {
-        guard activity == nil else { return }
+        guard !isWorking else { return }
         fileSelectionError = nil
         showsFileImporter = true
     }
@@ -132,7 +125,7 @@ struct BulkImportView: View {
     }
 
     private func close() {
-        guard activity == nil else { return }
+        guard !isWorking else { return }
         cancel()
         dismiss()
     }

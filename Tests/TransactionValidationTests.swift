@@ -1,5 +1,5 @@
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class TransactionValidationTests: XCTestCase {
     func testAmountsRejectTrailingTextExcessPrecisionNegativeAndOverflow() {

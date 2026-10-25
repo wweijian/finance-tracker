@@ -10,10 +10,10 @@ struct ImportCandidate: Identifiable, Hashable, Sendable {
     var category: String
     var rejectionReason: String?
     var remarks = ""
-    var ledgerlyDetails: LedgerlyImportDetails?
+    var financeDetails: FinanceImportDetails?
 
     var isReady: Bool { rejectionReason == nil }
     var amountCents: Int? { CurrencyAmountFormatter().cents(from: amount) }
-    var currency: String { ledgerlyDetails?.currency ?? "SGD" }
-    var statusLabel: String { rejectionReason ?? (ledgerlyDetails?.deletedAt == nil ? "Ready" : "Ready · Deleted") }
+    var currency: String { financeDetails?.currency ?? "SGD" }
+    var statusLabel: String { rejectionReason ?? (financeDetails?.deletedAt == nil ? "Ready" : "Ready · Deleted") }
 }

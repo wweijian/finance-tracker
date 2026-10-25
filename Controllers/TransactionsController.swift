@@ -20,8 +20,6 @@ final class TransactionsController: ObservableObject {
     @Published var form: TransactionForm?
     @Published var isShowingBulkImport = false
     @Published private(set) var importCandidates: [ImportCandidate] = []
-    @Published var importEditorCandidate: ImportCandidate?
-    @Published private(set) var importEditorError: String?
     @Published var importRowRemovalIDs: Set<String> = []
     @Published private var removedImportCandidates: [ImportCandidate] = []
     @Published private(set) var bulkImportSummary: BulkImportSummary?
@@ -36,6 +34,8 @@ final class TransactionsController: ObservableObject {
     private let bulkImportService: any BulkImportHandling
     private let service: any TransactionServing
     private var loadRequestID = UUID()
+    private var importValidationID = UUID()
+    private var importValidationTask: Task<Void, Never>?
     private let dateFormatter = TransactionDateFormatter()
     private let amountFormatter = CurrencyAmountFormatter()
 
@@ -145,10 +145,9 @@ final class TransactionsController: ObservableObject {
     }
 
     func cancelBulkImport() {
-        guard !isImporting else { return }
+        guard canEditImport else { return }
         importRowRemovalIDs = []
-        importEditorCandidate = nil
-        importEditorError = nil
+        cancelImportValidation()
         bulkImportSummary = nil
         bulkImportError = nil
         importCandidates = []
@@ -156,10 +155,9 @@ final class TransactionsController: ObservableObject {
     }
 
     func previewCSV(at url: URL, kind: CSVImportKind) {
-        guard !isImporting else { return }
+        guard canEditImport else { return }
         importRowRemovalIDs = []
-        importEditorCandidate = nil
-        importEditorError = nil
+        cancelImportValidation()
         importActivity = .readingFile
         importCandidates = []
         removedImportCandidates = []
@@ -183,65 +181,37 @@ final class TransactionsController: ObservableObject {
         }
     }
 
+    private var canEditImport: Bool { importActivity == nil || importActivity == .validatingRows }
+
+    func updateImportCandidates(_ candidates: [ImportCandidate]) {
+        guard canEditImport, bulkImportSummary == nil, importRowRemovalIDs.isEmpty,
+              candidates.map(\.id) == importCandidates.map(\.id), candidates != importCandidates else { return }
+        importCandidates = candidates
+        validateImportCandidates(candidates, delay: .milliseconds(200))
+    }
+
     func revalidate(_ candidate: ImportCandidate) {
-        guard !isImporting, bulkImportSummary == nil else { return }
         var candidates = importCandidates
         guard let index = candidates.firstIndex(where: { $0.id == candidate.id }) else { return }
         candidates[index] = candidate
-        validateImportCandidates(candidates)
-    }
-
-    func editImportCandidate(id: String) {
-        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty,
-              let candidate = importCandidates.first(where: { $0.id == id }) else { return }
-        importEditorError = nil
-        importEditorCandidate = candidate
-    }
-
-    func saveImportCandidate(_ candidate: ImportCandidate) {
-        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty, importEditorCandidate?.id == candidate.id,
-              let index = importCandidates.firstIndex(where: { $0.id == candidate.id }) else { return }
-        var candidates = importCandidates
-        candidates[index] = candidate
-        importActivity = .validatingRows
-        importEditorError = nil
-
-        Task { [bulkImportService] in
-            defer { importActivity = nil }
-            do {
-                let validated = try await bulkImportService.validate(candidates, categories: categories)
-                guard let edited = validated.first(where: { $0.id == candidate.id }) else { return }
-                guard edited.isReady else {
-                    importEditorError = edited.rejectionReason
-                    return
-                }
-                importCandidates = validated
-                importEditorCandidate = nil
-            } catch {
-                importEditorError = error.localizedDescription
-            }
-        }
+        updateImportCandidates(candidates)
     }
 
     func requestImportRowRemoval(_ ids: Set<String>) {
-        guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty else { return }
+        guard canEditImport, bulkImportSummary == nil, importRowRemovalIDs.isEmpty else { return }
         importRowRemovalIDs = ids.intersection(importCandidates.map(\.id))
     }
 
     func confirmImportRowRemoval(_ ids: Set<String>) {
-        guard !isImporting, bulkImportSummary == nil else { return }
+        guard canEditImport, bulkImportSummary == nil else { return }
         importRowRemovalIDs = []
         removeImportRows(ids)
     }
 
     func removeImportRows(_ ids: Set<String>) {
-        guard !isImporting, bulkImportSummary == nil else { return }
+        guard canEditImport, bulkImportSummary == nil else { return }
         let removed = importCandidates.filter { ids.contains($0.id) }
         guard !removed.isEmpty else { return }
-        if let candidate = importEditorCandidate, ids.contains(candidate.id) {
-            importEditorCandidate = nil
-            importEditorError = nil
-        }
         removedImportCandidates.append(contentsOf: removed)
         let remaining = importCandidates.filter { !ids.contains($0.id) }
         importCandidates = remaining
@@ -256,16 +226,34 @@ final class TransactionsController: ObservableObject {
         validateImportCandidates(candidates)
     }
 
-    private func validateImportCandidates(_ candidates: [ImportCandidate]) {
+    private func cancelImportValidation() {
+        importValidationID = UUID()
+        importValidationTask?.cancel()
+        importValidationTask = nil
+        if importActivity == .validatingRows { importActivity = nil }
+    }
+
+    private func validateImportCandidates(_ candidates: [ImportCandidate], delay: Duration = .zero) {
+        cancelImportValidation()
+        let requestID = importValidationID
         importActivity = .validatingRows
         bulkImportError = nil
 
-        Task { [bulkImportService] in
+        importValidationTask = Task { [bulkImportService, categories] in
             do {
-                importCandidates = try await bulkImportService.validate(candidates, categories: categories)
+                try await Task.sleep(for: delay)
+                try Task.checkCancellation()
+                let validated = try await bulkImportService.validate(candidates, categories: categories)
+                guard !Task.isCancelled, requestID == importValidationID else { return }
+                importCandidates = validated
                 importActivity = nil
+                importValidationTask = nil
+            } catch is CancellationError {
+                // A newer edit or a closed preview superseded this validation.
             } catch {
+                guard !Task.isCancelled, requestID == importValidationID else { return }
                 importActivity = nil
+                importValidationTask = nil
                 bulkImportError = error.localizedDescription
             }
         }
@@ -273,7 +261,7 @@ final class TransactionsController: ObservableObject {
 
     func commitBulkImport() {
         guard !isImporting, bulkImportSummary == nil, importRowRemovalIDs.isEmpty,
-              importEditorCandidate == nil, importPreview.readyCount > 0 else { return }
+              importPreview.readyCount > 0 else { return }
         commit(candidates: importCandidates)
     }
 

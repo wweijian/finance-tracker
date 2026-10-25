@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import LedgerlyApp
+@testable import FinanceApp
 
 final class BulkImportServiceTests: XCTestCase {
     private var directoryURL: URL!

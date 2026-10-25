@@ -2,24 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "Ledgerly",
+    name: "Finance",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "Ledgerly", targets: ["LedgerlyApp"])],
+    products: [.executable(name: "Finance", targets: ["FinanceApp"])],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0")
     ],
     targets: [
         .executableTarget(
-            name: "LedgerlyApp",
+            name: "FinanceApp",
             dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
             path: ".",
-            exclude: ["AGENTS.md", "Tests", "transactions", "Makefile"],
+            exclude: ["AGENTS.md", "Tests", "transactions", "Makefile", "Packaging", "dist"],
             sources: ["App", "Controllers", "Models", "Repositories", "Services", "Views"],
             resources: [.copy("Resources")]
         ),
         .testTarget(
-            name: "LedgerlyAppTests",
-            dependencies: ["LedgerlyApp"],
+            name: "FinanceAppTests",
+            dependencies: ["FinanceApp"],
             path: "Tests"
         )
     ]
