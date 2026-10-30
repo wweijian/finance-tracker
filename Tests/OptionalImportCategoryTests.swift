@@ -4,7 +4,7 @@ import Testing
 
 struct OptionalImportCategoryTests {
     @Test(arguments: [CSVImportKind.debit, .credit, .finance])
-    func omittedAndBlankCategoriesImportAsOther(kind: CSVImportKind) async throws {
+    func omittedAndBlankCategoriesNeedAttentionUntilAssigned(kind: CSVImportKind) async throws {
         let store = try SQLiteTestStore()
         let service = BulkImportService(repository: store.repository)
         let categories = try CategoryStore().categories()
@@ -14,15 +14,45 @@ struct OptionalImportCategoryTests {
             try csv.write(to: url, atomically: true, encoding: .utf8)
             let preview = try await service.previewFile(at: url, kind: kind, categories: categories)
             #expect(preview.count == 1)
-            #expect(preview.first?.category == "Other")
-            #expect(preview.first?.isReady == true)
-            let summary = try await service.commit(preview, categories: categories)
+            #expect(preview.first?.category == "")
+            #expect(preview.first?.rejectionReason == "Choose a category before importing.")
+            #expect(ImportPreview(candidates: preview).rows(matching: .needsAttention).count == 1)
+            #expect(ImportPreview(candidates: preview).readyCount == 0)
+            let skipped = try await service.commit(preview, categories: categories)
+            #expect(skipped.acceptedCount == 0)
+            #expect(skipped.rejectedCount == 1)
+            #expect(try store.repository.transactions(includeDeleted: false).isEmpty)
+
+            var edited = preview
+            edited[0].category = "food"
+            let corrected = try await service.validate(edited, categories: categories)
+            #expect(corrected.first?.category == "Food")
+            #expect(ImportPreview(candidates: corrected).rows(matching: .needsAttention).isEmpty)
+            #expect(ImportPreview(candidates: corrected).readyCount == 1)
+            let summary = try await service.commit(corrected, categories: categories)
             #expect(summary.acceptedCount == 1)
             let id = try #require(summary.importedTransactionIDs.first)
-            #expect(try store.repository.transaction(id: id)?.category == "Other")
+            #expect(try store.repository.transaction(id: id)?.category == "Food")
             #expect(try String(contentsOf: url, encoding: .utf8) == csv)
             try await service.undo(summary)
         }
+    }
+
+    @Test(arguments: [CSVImportKind.debit, .credit, .finance])
+    func clearingACategoryAfterPreviewCannotWriteAnUncategorizedTransaction(kind: CSVImportKind) async throws {
+        let store = try SQLiteTestStore()
+        let service = BulkImportService(repository: store.repository)
+        let categories = try CategoryStore().categories()
+        let url = store.directory.appendingPathComponent("cleared-category.csv")
+        try fixture(kind: kind, category: "Other").write(to: url, atomically: true, encoding: .utf8)
+        var preview = try await service.previewFile(at: url, kind: kind, categories: categories)
+        #expect(preview.first?.isReady == true)
+        #expect(preview.first?.category == "Other")
+        preview[0].category = " \t "
+        let summary = try await service.commit(preview, categories: categories)
+        #expect(summary.acceptedCount == 0)
+        #expect(summary.rejectedCount == 1)
+        #expect(try store.repository.transactions(includeDeleted: true).isEmpty)
     }
 
     @Test(arguments: [CSVImportKind.debit, .credit, .finance])

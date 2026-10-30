@@ -7,7 +7,8 @@ struct ImportCandidateCategoryCell: View {
     var body: some View {
         Picker("Category", selection: $category) {
             if !categories.contains(category) {
-                Text(category.isEmpty ? "Other (default)" : category).tag(category)
+                Text(category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Choose category" : category)
+                    .tag(category)
             }
             ForEach(categories, id: \.self) { category in Text(category).tag(category) }
         }

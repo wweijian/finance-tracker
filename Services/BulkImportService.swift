@@ -53,6 +53,10 @@ actor BulkImportService: BulkImportHandling {
             candidate.rejectionReason = reason
             return candidate
         }
+        guard !candidate.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            candidate.rejectionReason = "Choose a category before importing."
+            return candidate
+        }
         guard let category = canonicalCategory(candidate.category, categories: categories) else {
             candidate.rejectionReason = "Category is not recognised."
             return candidate
@@ -137,8 +141,7 @@ actor BulkImportService: BulkImportHandling {
 
     private func canonicalCategory(_ value: String, categories: [String]) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let requested = trimmed.isEmpty ? "Other" : trimmed
-        return categories.first { $0.caseInsensitiveCompare(requested) == .orderedSame }
+        return categories.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
     }
 
     private func makeTransaction(from candidate: ImportCandidate) throws -> FinanceTransaction {
